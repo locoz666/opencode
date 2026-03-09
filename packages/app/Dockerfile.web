@@ -9,6 +9,7 @@ COPY packages/app/package.json packages/app/package.json
 COPY packages/sdk/js/package.json packages/sdk/js/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/util/package.json packages/util/package.json
+COPY packages/slack/package.json packages/slack/package.json
 
 RUN bun install --frozen-lockfile
 
