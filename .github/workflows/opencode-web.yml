@@ -6,8 +6,11 @@ on:
       - dev
     paths:
       - packages/app/**
+      - packages/*/**
       - .github/workflows/opencode-web.yml
       - package.json
+      - bun.lock
+      - patches/**
       - packages/app/nginx.conf
       - packages/app/Dockerfile.web
   workflow_dispatch:
