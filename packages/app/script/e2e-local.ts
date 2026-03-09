@@ -61,6 +61,7 @@ const serverEnv = {
   ...process.env,
   OPENCODE_DISABLE_SHARE: process.env.OPENCODE_DISABLE_SHARE ?? "true",
   OPENCODE_DISABLE_LSP_DOWNLOAD: "true",
+  OPENCODE_DISABLE_PROJECT_CONFIG: "true",
   OPENCODE_DISABLE_DEFAULT_PLUGINS: "true",
   OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
   OPENCODE_TEST_HOME: path.join(sandbox, "home"),
@@ -82,6 +83,7 @@ const runnerEnv = {
   VITE_OPENCODE_SERVER_HOST: "127.0.0.1",
   VITE_OPENCODE_SERVER_PORT: String(serverPort),
   PLAYWRIGHT_PORT: String(webPort),
+  PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH ?? path.join(os.homedir(), ".cache", "ms-playwright"),
 } satisfies Record<string, string>
 
 let seed: ReturnType<typeof Bun.spawn> | undefined

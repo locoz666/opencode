@@ -1,10 +1,17 @@
 import { WorkerPoolManager } from "@pierre/diffs/worker"
-import ShikiWorkerUrl from "@pierre/diffs/worker/worker.js?worker&url"
+import * as worker from "@pierre/diffs/worker/worker.js?worker&url"
 
 export type WorkerPoolStyle = "unified" | "split"
 
+const workerUrl = () => {
+  if (typeof worker.default === "string") return worker.default
+  const meta = import.meta as ImportMeta & { resolve?: (value: string) => string }
+  if (typeof meta.resolve === "function") return meta.resolve("@pierre/diffs/worker/worker.js")
+  return "@pierre/diffs/worker/worker.js"
+}
+
 export function workerFactory(): Worker {
-  return new Worker(ShikiWorkerUrl, { type: "module" })
+  return new Worker(workerUrl(), { type: "module" })
 }
 
 function createPool(lineDiffType: "none" | "word-alt") {

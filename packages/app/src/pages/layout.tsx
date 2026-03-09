@@ -81,21 +81,15 @@ import {
 } from "./layout/sidebar-workspace"
 import { workspaceOpenState } from "./layout/sidebar-workspace-helpers"
 import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
+import { SidebarTree } from "./layout/sidebar-tree"
 import { SidebarContent } from "./layout/sidebar-shell"
+import { defaultPageState } from "./layout/persisted-state"
+import { routeAncestors, visibleDirs } from "./layout/sidebar-tree-state"
 
 export default function Layout(props: ParentProps) {
   const [store, setStore, , ready] = persisted(
-    Persist.global("layout.page", ["layout.page.v1"]),
-    createStore({
-      lastProjectSession: {} as { [directory: string]: { directory: string; id: string; at: number } },
-      activeProject: undefined as string | undefined,
-      activeWorkspace: undefined as string | undefined,
-      workspaceOrder: {} as Record<string, string[]>,
-      workspaceName: {} as Record<string, string>,
-      workspaceBranchName: {} as Record<string, Record<string, string>>,
-      workspaceExpanded: {} as Record<string, boolean>,
-      gettingStartedDismissed: false,
-    }),
+    Persist.global("layout.page", ["layout.page.v2", "layout.page.v1"]),
+    createStore(defaultPageState()),
   )
 
   const pageReady = createMemo(() => ready())
@@ -605,15 +599,15 @@ export default function Layout(props: ParentProps) {
   })
 
   const visibleSessionDirs = createMemo(() => {
-    const project = currentProject()
-    if (!project) return [] as string[]
-    if (!workspaceSetting()) return [project.worktree]
-
-    const activeDir = currentDir()
-    return workspaceIds(project).filter((directory) => {
-      const expanded = store.workspaceExpanded[directory] ?? directory === project.worktree
-      const active = directory === activeDir
-      return expanded || active
+    return visibleDirs<LocalProject>({
+      mode: layout.sidebar.mode(),
+      projects: layout.projects.list(),
+      project: currentProject(),
+      dir: currentDir(),
+      projectExpanded: store.projectExpanded,
+      workspaceExpanded: store.workspaceExpanded,
+      ids: workspaceIds,
+      workspaces: (project) => project.vcs === "git" && layout.sidebar.workspaces(project.worktree)(),
     })
   })
 
@@ -1162,9 +1156,14 @@ export default function Layout(props: ParentProps) {
   function syncSessionRoute(directory: string, id: string, root = activeProjectRoot(directory)) {
     rememberSessionRoute(directory, id, root)
     notification.session.markViewed(id)
-    const expanded = untrack(() => store.workspaceExpanded[directory])
-    if (expanded === false) {
-      setStore("workspaceExpanded", directory, true)
+    const ancestors = routeAncestors(layout.sidebar.mode(), root, directory, layout.sidebar.workspaces(root)())
+    const project = ancestors.project
+    if (project && untrack(() => store.projectExpanded[project]) === false) {
+      setStore("projectExpanded", project, true)
+    }
+    const workspace = ancestors.workspace
+    if (workspace && untrack(() => store.workspaceExpanded[workspace]) === false) {
+      setStore("workspaceExpanded", workspace, true)
     }
     requestAnimationFrame(() => scrollToSession(id, `${directory}:${id}`))
     return root
@@ -1889,6 +1888,22 @@ export default function Layout(props: ParentProps) {
     setHoverSession,
   }
 
+  const treeMode = createMemo(() => platform.platform === "web" && layout.sidebar.mode() === "tree")
+
+  const ModeToggle = () => (
+    <div class="shrink-0 px-5 pt-3 pb-1">
+      <Button
+        variant="ghost"
+        size="small"
+        data-action="sidebar-mode-toggle"
+        class="w-full justify-start"
+        onClick={() => layout.sidebar.setMode(layout.sidebar.mode() === "tree" ? "classic" : "tree")}
+      >
+        {layout.sidebar.mode() === "tree" ? "Classic" : "Tree"}
+      </Button>
+    </div>
+  )
+
   const SidebarPanel = (panelProps: { project: LocalProject | undefined; mobile?: boolean; merged?: boolean }) => {
     const merged = createMemo(() => panelProps.mobile || (panelProps.merged ?? layout.sidebar.opened()))
     const hover = createMemo(() => !panelProps.mobile && panelProps.merged === false && !layout.sidebar.opened())
@@ -2056,9 +2071,7 @@ export default function Layout(props: ParentProps) {
                         <DragDropSensors />
                         <ConstrainDragXAxis />
                         <div
-                          ref={(el) => {
-                            if (!panelProps.mobile) scrollContainerRef = el
-                          }}
+                          ref={(el) => workspaceSidebarCtx.setScrollContainerRef(el, panelProps.mobile)}
                           class="size-full flex flex-col py-2 gap-4 overflow-y-auto no-scrollbar [overflow-anchor:none]"
                         >
                           <SortableProvider ids={workspaces()}>
@@ -2172,8 +2185,39 @@ export default function Layout(props: ParentProps) {
               helpLabel={() => language.t("sidebar.help")}
               onOpenHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
               renderPanel={() => (
-                <Show when={currentProject()} keyed>
-                  {(project) => <SidebarPanel project={project} merged />}
+                <Show
+                  when={treeMode()}
+                  fallback={
+                    <Show when={currentProject()} keyed>
+                      {(project) => (
+                        <>
+                          <Show when={platform.platform === "web"}>
+                            <ModeToggle />
+                          </Show>
+                          <SidebarPanel project={project} merged />
+                        </>
+                      )}
+                    </Show>
+                  }
+                >
+                  <SidebarTree
+                    mode={layout.sidebar.mode}
+                    setMode={layout.sidebar.setMode}
+                    projects={() => layout.projects.list()}
+                    sortNow={sortNow}
+                    projectExpanded={(directory) => store.projectExpanded[directory] ?? true}
+                    setProjectExpanded={(directory, value) => setStore("projectExpanded", directory, value)}
+                    workspaceExpanded={(directory, local) =>
+                      workspaceOpenState(store.workspaceExpanded, directory, local)
+                    }
+                    setWorkspaceExpanded={(directory, value) => setStore("workspaceExpanded", directory, value)}
+                    workspacesEnabled={(project) =>
+                      project.vcs === "git" && layout.sidebar.workspaces(project.worktree)()
+                    }
+                    workspaceIds={workspaceIds}
+                    workspaceLabel={workspaceLabel}
+                    sessionProps={projectSidebarCtx.sessionProps}
+                  />
                 </Show>
               )}
             />

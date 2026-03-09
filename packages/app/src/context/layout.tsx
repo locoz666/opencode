@@ -16,7 +16,17 @@ const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] a
 const DEFAULT_PANEL_WIDTH = 344
 const DEFAULT_SESSION_WIDTH = 600
 const DEFAULT_TERMINAL_HEIGHT = 280
+const SIDEBAR_MODES = ["classic", "tree"] as const
 export type AvatarColorKey = (typeof AVATAR_COLOR_KEYS)[number]
+export type SidebarMode = (typeof SIDEBAR_MODES)[number]
+export const DEFAULT_SIDEBAR_MODE: SidebarMode = "classic"
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+export function normalizeSidebarMode(value: unknown): SidebarMode | undefined {
+  return SIDEBAR_MODES.find((item) => item === value)
+}
 
 export function getAvatarColors(key?: string) {
   if (key && AVATAR_COLOR_KEYS.includes(key as AvatarColorKey)) {
@@ -28,6 +38,42 @@ export function getAvatarColors(key?: string) {
   return {
     background: "var(--surface-info-base)",
     foreground: "var(--text-base)",
+  }
+}
+
+export function defaultLayoutState() {
+  return {
+    sidebar: {
+      opened: false,
+      mode: DEFAULT_SIDEBAR_MODE,
+      width: DEFAULT_PANEL_WIDTH,
+      workspaces: {} as Record<string, boolean>,
+      workspacesDefault: false,
+    },
+    terminal: {
+      height: DEFAULT_TERMINAL_HEIGHT,
+      opened: false,
+    },
+    review: {
+      diffStyle: "split" as ReviewDiffStyle,
+      panelOpened: true,
+    },
+    fileTree: {
+      opened: true,
+      width: DEFAULT_PANEL_WIDTH,
+      tab: "changes" as "changes" | "all",
+    },
+    session: {
+      width: DEFAULT_SESSION_WIDTH,
+    },
+    mobileSidebar: {
+      opened: false,
+    },
+    sessionTabs: {} as Record<string, SessionTabs>,
+    sessionView: {} as Record<string, SessionView>,
+    handoff: {
+      tabs: undefined as TabHandoff | undefined,
+    },
   }
 }
 
@@ -130,6 +176,100 @@ const normalizeStoredSessionTabs = (key: string, tabs: SessionTabs) => {
   }
 }
 
+export function migrateLayoutStore(value: unknown) {
+  if (!isRecord(value)) return value
+
+  const sidebar = value.sidebar
+  const migratedSidebar = (() => {
+    if (!isRecord(sidebar)) return sidebar
+
+    const mode = normalizeSidebarMode(sidebar.mode) ?? DEFAULT_SIDEBAR_MODE
+    const next =
+      typeof sidebar.workspaces === "boolean"
+        ? {
+            ...sidebar,
+            mode,
+            workspaces: {},
+            workspacesDefault: sidebar.workspaces,
+          }
+        : {
+            ...sidebar,
+            mode,
+          }
+
+    if (typeof sidebar.workspaces !== "boolean" && sidebar.mode === mode) return sidebar
+    return next
+  })()
+
+  const review = value.review
+  const fileTree = value.fileTree
+  const migratedFileTree = (() => {
+    if (!isRecord(fileTree)) return fileTree
+    if (fileTree.tab === "changes" || fileTree.tab === "all") return fileTree
+
+    const width = typeof fileTree.width === "number" ? fileTree.width : DEFAULT_PANEL_WIDTH
+    return {
+      ...fileTree,
+      opened: true,
+      width: width === 260 ? DEFAULT_PANEL_WIDTH : width,
+      tab: "changes",
+    }
+  })()
+
+  const migratedReview = (() => {
+    if (!isRecord(review)) return review
+    if (typeof review.panelOpened === "boolean") return review
+
+    const opened = isRecord(fileTree) && typeof fileTree.opened === "boolean" ? fileTree.opened : true
+    return {
+      ...review,
+      panelOpened: opened,
+    }
+  })()
+
+  const sessionTabs = value.sessionTabs
+  const migratedSessionTabs = (() => {
+    if (!isRecord(sessionTabs)) return sessionTabs
+
+    let changed = false
+    const next = Object.fromEntries(
+      Object.entries(sessionTabs).map(([key, tabs]) => {
+        if (!isRecord(tabs) || !Array.isArray(tabs.all)) return [key, tabs]
+
+        const current = {
+          all: tabs.all.filter((tab): tab is string => typeof tab === "string"),
+          active: typeof tabs.active === "string" ? tabs.active : undefined,
+        }
+        const normalized = normalizeStoredSessionTabs(key, current)
+        if (current.all.length !== tabs.all.length) changed = true
+        if (!same(current.all, normalized.all) || current.active !== normalized.active) changed = true
+        if (tabs.active !== undefined && typeof tabs.active !== "string") changed = true
+        return [key, normalized]
+      }),
+    )
+
+    if (!changed) return sessionTabs
+    return next
+  })()
+
+  if (
+    migratedSidebar === sidebar &&
+    migratedReview === review &&
+    migratedFileTree === fileTree &&
+    migratedSessionTabs === sessionTabs
+  ) {
+    return value
+  }
+
+  return {
+    ...value,
+    sidebar: migratedSidebar,
+    review: migratedReview,
+    fileTree: migratedFileTree,
+    sessionTabs: migratedSessionTabs,
+  }
+}
+
 export const { use: useLayout, provider: LayoutProvider } = createSimpleContext({
   name: "Layout",
   init: () => {
@@ -138,127 +278,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     const server = useServer()
     const platform = usePlatform()
 
-    const isRecord = (value: unknown): value is Record<string, unknown> =>
-      typeof value === "object" && value !== null && !Array.isArray(value)
-
-    const migrate = (value: unknown) => {
-      if (!isRecord(value)) return value
-
-      const sidebar = value.sidebar
-      const migratedSidebar = (() => {
-        if (!isRecord(sidebar)) return sidebar
-        if (typeof sidebar.workspaces !== "boolean") return sidebar
-        return {
-          ...sidebar,
-          workspaces: {},
-          workspacesDefault: sidebar.workspaces,
-        }
-      })()
-
-      const review = value.review
-      const fileTree = value.fileTree
-      const migratedFileTree = (() => {
-        if (!isRecord(fileTree)) return fileTree
-        if (fileTree.tab === "changes" || fileTree.tab === "all") return fileTree
-
-        const width = typeof fileTree.width === "number" ? fileTree.width : DEFAULT_PANEL_WIDTH
-        return {
-          ...fileTree,
-          opened: true,
-          width: width === 260 ? DEFAULT_PANEL_WIDTH : width,
-          tab: "changes",
-        }
-      })()
-
-      const migratedReview = (() => {
-        if (!isRecord(review)) return review
-        if (typeof review.panelOpened === "boolean") return review
-
-        const opened = isRecord(fileTree) && typeof fileTree.opened === "boolean" ? fileTree.opened : true
-        return {
-          ...review,
-          panelOpened: opened,
-        }
-      })()
-
-      const sessionTabs = value.sessionTabs
-      const migratedSessionTabs = (() => {
-        if (!isRecord(sessionTabs)) return sessionTabs
-
-        let changed = false
-        const next = Object.fromEntries(
-          Object.entries(sessionTabs).map(([key, tabs]) => {
-            if (!isRecord(tabs) || !Array.isArray(tabs.all)) return [key, tabs]
-
-            const current = {
-              all: tabs.all.filter((tab): tab is string => typeof tab === "string"),
-              active: typeof tabs.active === "string" ? tabs.active : undefined,
-            }
-            const normalized = normalizeStoredSessionTabs(key, current)
-            if (current.all.length !== tabs.all.length) changed = true
-            if (!same(current.all, normalized.all) || current.active !== normalized.active) changed = true
-            if (tabs.active !== undefined && typeof tabs.active !== "string") changed = true
-            return [key, normalized]
-          }),
-        )
-
-        if (!changed) return sessionTabs
-        return next
-      })()
-
-      if (
-        migratedSidebar === sidebar &&
-        migratedReview === review &&
-        migratedFileTree === fileTree &&
-        migratedSessionTabs === sessionTabs
-      ) {
-        return value
-      }
-
-      return {
-        ...value,
-        sidebar: migratedSidebar,
-        review: migratedReview,
-        fileTree: migratedFileTree,
-        sessionTabs: migratedSessionTabs,
-      }
-    }
-
-    const target = Persist.global("layout", ["layout.v6"])
+    const target = Persist.global("layout", ["layout.v7", "layout.v6"])
     const [store, setStore, _, ready] = persisted(
-      { ...target, migrate },
-      createStore({
-        sidebar: {
-          opened: false,
-          width: DEFAULT_PANEL_WIDTH,
-          workspaces: {} as Record<string, boolean>,
-          workspacesDefault: false,
-        },
-        terminal: {
-          height: DEFAULT_TERMINAL_HEIGHT,
-          opened: false,
-        },
-        review: {
-          diffStyle: "split" as ReviewDiffStyle,
-          panelOpened: true,
-        },
-        fileTree: {
-          opened: true,
-          width: DEFAULT_PANEL_WIDTH,
-          tab: "changes" as "changes" | "all",
-        },
-        session: {
-          width: DEFAULT_SESSION_WIDTH,
-        },
-        mobileSidebar: {
-          opened: false,
-        },
-        sessionTabs: {} as Record<string, SessionTabs>,
-        sessionView: {} as Record<string, SessionView>,
-        handoff: {
-          tabs: undefined as TabHandoff | undefined,
-        },
-      }),
+      { ...target, migrate: migrateLayoutStore },
+      createStore(defaultLayoutState()),
     )
 
     const MAX_SESSION_KEYS = 50
@@ -586,6 +609,7 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       },
       sidebar: {
         opened: createMemo(() => store.sidebar.opened),
+        mode: createMemo(() => store.sidebar.mode ?? DEFAULT_SIDEBAR_MODE),
         open() {
           setStore("sidebar", "opened", true)
         },
@@ -598,6 +622,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         width: createMemo(() => store.sidebar.width),
         resize(width: number) {
           setStore("sidebar", "width", width)
+        },
+        setMode(mode: SidebarMode) {
+          setStore("sidebar", "mode", mode)
         },
         workspaces(directory: string) {
           return () => store.sidebar.workspaces[directory] ?? store.sidebar.workspacesDefault ?? false

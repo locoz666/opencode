@@ -17,8 +17,36 @@ import {
   slugFromUrl,
   waitSlug,
 } from "../actions"
-import { dropdownMenuContentSelector, inlineInputSelector, workspaceItemSelector } from "../selectors"
-import { createSdk, dirSlug } from "../utils"
+import { dropdownMenuContentSelector, workspaceItemSelector } from "../selectors"
+import { createSdk, dirSlug, modKey } from "../utils"
+
+const layoutKey = "opencode.global.dat:layout"
+
+async function setSidebarMode(page: Page, mode: "classic" | "tree") {
+  await page.evaluate(
+    ({ mode, key }: { mode: "classic" | "tree"; key: string }) => {
+      const raw = localStorage.getItem(key)
+      const data = raw ? JSON.parse(raw) : {}
+      const sidebar = data.sidebar && typeof data.sidebar === "object" ? data.sidebar : {}
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          ...data,
+          sidebar: {
+            ...sidebar,
+            mode,
+          },
+        }),
+      )
+    },
+    { mode, key: layoutKey },
+  )
+}
+
+async function resetSidebarMode(page: Page) {
+  await setSidebarMode(page, "classic")
+  await page.reload()
+}
 
 async function setupWorkspaceTest(page: Page, project: { slug: string }) {
   const rootSlug = project.slug
@@ -54,6 +82,7 @@ test("can enable and disable workspaces from project menu", async ({ page, withP
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async ({ slug }) => {
+    await resetSidebarMode(page)
     await openSidebar(page)
 
     await expect(page.getByRole("button", { name: "New session" }).first()).toBeVisible()
@@ -73,6 +102,7 @@ test("can create a workspace", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async ({ slug }) => {
+    await resetSidebarMode(page)
     await openSidebar(page)
     await setWorkspacesEnabled(page, slug, true)
 
@@ -115,6 +145,7 @@ test("non-git projects keep workspace mode disabled", async ({ page, withProject
 
   try {
     await withProject(async () => {
+      await resetSidebarMode(page)
       await page.goto(`/${nonGitSlug}/session`)
 
       await expect.poll(() => slugFromUrl(page.url()), { timeout: 30_000 }).not.toBe("")
@@ -152,6 +183,7 @@ test("can rename a workspace", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async (project) => {
+    await resetSidebarMode(page)
     const { slug } = await setupWorkspaceTest(page, project)
 
     const rename = `e2e workspace ${Date.now()}`
@@ -160,12 +192,14 @@ test("can rename a workspace", async ({ page, withProject }) => {
 
     await expect(menu).toHaveCount(0)
 
-    const item = page.locator(workspaceItemSelector(slug)).first()
+    const item = page.locator(`${workspaceItemSelector(slug)}:visible`).first()
     await expect(item).toBeVisible()
-    const input = item.locator(inlineInputSelector).first()
-    await expect(input).toBeVisible()
-    await input.fill(rename)
-    await input.press("Enter")
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-component") ?? ""))
+      .toBe("inline-input")
+    await page.keyboard.press(`${modKey}+A`)
+    await page.keyboard.type(rename)
+    await page.keyboard.press("Enter")
     await expect(item).toContainText(rename)
   })
 })
@@ -174,6 +208,7 @@ test("can reset a workspace", async ({ page, sdk, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async (project) => {
+    await resetSidebarMode(page)
     const { slug, directory: createdDir } = await setupWorkspaceTest(page, project)
 
     const readme = path.join(createdDir, "README.md")
@@ -236,6 +271,7 @@ test("can delete a workspace", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async (project) => {
+    await resetSidebarMode(page)
     const sdk = createSdk(project.directory)
     const { rootSlug, slug, directory } = await setupWorkspaceTest(page, project)
 
@@ -282,6 +318,7 @@ test("can delete a workspace", async ({ page, withProject }) => {
 test("can reorder workspaces by drag and drop", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
   await withProject(async ({ slug: rootSlug }) => {
+    await resetSidebarMode(page)
     const workspaces = [] as { directory: string; slug: string }[]
 
     const listSlugs = async () => {
