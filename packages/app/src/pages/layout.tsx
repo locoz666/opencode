@@ -84,7 +84,7 @@ import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from 
 import { SidebarTree } from "./layout/sidebar-tree"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { defaultPageState } from "./layout/persisted-state"
-import { routeAncestors, visibleDirs } from "./layout/sidebar-tree-state"
+import { eagerDirs, routeAncestors, visibleDirs } from "./layout/sidebar-tree-state"
 
 export default function Layout(props: ParentProps) {
   const [store, setStore, , ready] = persisted(
@@ -629,10 +629,22 @@ export default function Layout(props: ParentProps) {
     const now = Date.now()
     const dirs = visibleSessionDirs()
     if (dirs.length === 0) return [] as Session[]
+    const eager = new Set(
+      eagerDirs<LocalProject>({
+        mode: sidebarMode(),
+        projects: layout.projects.list(),
+        project: currentProject(),
+        dir: currentDir(),
+        projectExpanded: store.projectExpanded,
+        workspaceExpanded: store.workspaceExpanded,
+        ids: workspaceIds,
+        workspaces: (project) => project.vcs === "git" && layout.sidebar.workspaces(project.worktree)(),
+      }),
+    )
 
     const result: Session[] = []
     for (const dir of dirs) {
-      const [dirStore] = globalSync.child(dir, { bootstrap: true })
+      const [dirStore] = globalSync.child(dir, { bootstrap: eager.has(dir) })
       const dirSessions = sortedRootSessions(dirStore, now)
       result.push(...dirSessions)
     }
