@@ -74,8 +74,8 @@ export const eagerDirs = <P extends Project>(args: {
     if (!projectOpen && !projectActive && !workspaceOpen) return []
 
     if (!args.workspaces(project)) {
-      if (projectOpen) return dirs
-      return dirs.filter((dir) => dir === args.dir)
+      if (projectOpen || projectActive) return dirs
+      return []
     }
 
     return dirs.filter((dir) => {

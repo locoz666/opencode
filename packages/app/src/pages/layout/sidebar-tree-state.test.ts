@@ -137,4 +137,19 @@ describe("eagerDirs", () => {
       }),
     ).toEqual(["/tmp/root", "/tmp/branch"])
   })
+
+  test("eagerly bootstraps all dirs for the active flattened project", () => {
+    expect(
+      eagerDirs<typeof root>({
+        mode: "tree",
+        projects: [root],
+        project: root,
+        dir: "/tmp/branch",
+        projectExpanded: {},
+        workspaceExpanded: {},
+        ids,
+        workspaces: () => false,
+      }),
+    ).toEqual(["/tmp/root", "/tmp/branch"])
+  })
 })

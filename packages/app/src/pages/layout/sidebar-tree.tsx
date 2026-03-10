@@ -1,5 +1,4 @@
 import { type Session } from "@opencode-ai/sdk/v2/client"
-import { Button } from "@opencode-ai/ui/button"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -15,11 +14,7 @@ import { childMapByParent, displayName, sortedRootSessions } from "./helpers"
 import { SessionItem, type SessionItemProps } from "./sidebar-items"
 import { treeProjects } from "./sidebar-tree-helpers"
 
-type Mode = "classic" | "tree"
-
 export type SidebarTreeProps = {
-  mode: Accessor<Mode>
-  setMode: (mode: Mode) => void
   projects: Accessor<LocalProject[]>
   sortNow: Accessor<number>
   mobile?: boolean
@@ -92,15 +87,6 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
   return (
     <div class="flex min-h-0 flex-col gap-2 px-2 py-3">
       <div class="flex items-center gap-1 px-2">
-        <Button
-          variant="ghost"
-          size="small"
-          data-action="sidebar-mode-toggle"
-          class="min-w-0 grow justify-start"
-          onClick={() => props.setMode(props.mode() === "tree" ? "classic" : "tree")}
-        >
-          {props.mode() === "tree" ? "Classic" : "Tree"}
-        </Button>
         <TooltipKeybind placement="bottom" title={props.openProjectLabel()} keybind={props.openProjectKeybind() ?? ""}>
           <IconButton
             icon="folder-add-left"
