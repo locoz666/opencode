@@ -51,3 +51,37 @@ export const visibleDirs = <P extends Project>(args: {
     })
   })
 }
+
+export const eagerDirs = <P extends Project>(args: {
+  mode: Mode
+  projects: P[]
+  project?: P
+  dir: string
+  projectExpanded: Record<string, boolean>
+  workspaceExpanded: Record<string, boolean>
+  ids: (project: P) => string[]
+  workspaces: (project: P) => boolean
+}) => {
+  if (args.mode !== "tree") {
+    return visibleDirs(args)
+  }
+
+  return args.projects.flatMap((project) => {
+    const dirs = args.ids(project)
+    const projectOpen = args.projectExpanded[project.worktree] === true
+    const projectActive = owns(args.dir, project)
+    const workspaceOpen = dirs.some((dir) => args.workspaceExpanded[dir] === true)
+    if (!projectOpen && !projectActive && !workspaceOpen) return []
+
+    if (!args.workspaces(project)) {
+      if (projectOpen) return dirs
+      return dirs.filter((dir) => dir === args.dir)
+    }
+
+    return dirs.filter((dir) => {
+      if (dir === args.dir) return true
+      if (args.workspaceExpanded[dir] === true) return true
+      return dir === project.worktree && projectOpen
+    })
+  })
+}
