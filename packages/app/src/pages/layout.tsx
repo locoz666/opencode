@@ -598,9 +598,11 @@ export default function Layout(props: ParentProps) {
     return layout.sidebar.workspaces(project.worktree)()
   })
 
+  const sidebarMode = createMemo(() => (platform.platform === "web" ? layout.sidebar.mode() : "classic"))
+
   const visibleSessionDirs = createMemo(() => {
     return visibleDirs<LocalProject>({
-      mode: layout.sidebar.mode(),
+      mode: sidebarMode(),
       projects: layout.projects.list(),
       project: currentProject(),
       dir: currentDir(),
@@ -1156,7 +1158,7 @@ export default function Layout(props: ParentProps) {
   function syncSessionRoute(directory: string, id: string, root = activeProjectRoot(directory)) {
     rememberSessionRoute(directory, id, root)
     notification.session.markViewed(id)
-    const ancestors = routeAncestors(layout.sidebar.mode(), root, directory, layout.sidebar.workspaces(root)())
+    const ancestors = routeAncestors(sidebarMode(), root, directory, layout.sidebar.workspaces(root)())
     const project = ancestors.project
     if (project && untrack(() => store.projectExpanded[project]) === false) {
       setStore("projectExpanded", project, true)
@@ -1889,6 +1891,16 @@ export default function Layout(props: ParentProps) {
   }
 
   const treeMode = createMemo(() => platform.platform === "web" && layout.sidebar.mode() === "tree")
+  const desktopNavWidth = createMemo(() => {
+    if (layout.sidebar.opened()) return `${Math.max(layout.sidebar.width(), 244)}px`
+    if (treeMode()) return "0px"
+    return "4rem"
+  })
+  const desktopMainLeft = createMemo(() => {
+    if (layout.sidebar.opened()) return `${Math.max(layout.sidebar.width(), 244)}px`
+    if (treeMode()) return "0px"
+    return "4rem"
+  })
 
   const ModeToggle = () => (
     <div class="shrink-0 px-5 pt-3 pb-1">
@@ -2148,7 +2160,7 @@ export default function Layout(props: ParentProps) {
             "absolute inset-y-0 left-0": true,
             "z-10": true,
           }}
-          style={{ width: `${Math.max(layout.sidebar.width(), 244)}px` }}
+          style={{ width: desktopNavWidth() }}
           ref={(el) => {
             setState("nav", el)
           }}
@@ -2165,6 +2177,7 @@ export default function Layout(props: ParentProps) {
           <div class="@container w-full h-full contain-strict">
             <SidebarContent
               opened={() => layout.sidebar.opened()}
+              railHidden={treeMode()}
               aimMove={aim.move}
               projects={() => layout.projects.list()}
               renderProject={(project) => (
@@ -2205,6 +2218,14 @@ export default function Layout(props: ParentProps) {
                     setMode={layout.sidebar.setMode}
                     projects={() => layout.projects.list()}
                     sortNow={sortNow}
+                    openProjectLabel={() => language.t("command.project.open")}
+                    openProjectKeybind={() => command.keybind("project.open")}
+                    onOpenProject={chooseProject}
+                    settingsLabel={() => language.t("sidebar.settings")}
+                    settingsKeybind={() => command.keybind("settings.open")}
+                    onOpenSettings={openSettings}
+                    helpLabel={() => language.t("sidebar.help")}
+                    onOpenHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
                     projectExpanded={(directory) => store.projectExpanded[directory] ?? true}
                     setProjectExpanded={(directory, value) => setStore("projectExpanded", directory, value)}
                     workspaceExpanded={(directory, local) =>
@@ -2217,6 +2238,7 @@ export default function Layout(props: ParentProps) {
                     workspaceIds={workspaceIds}
                     workspaceLabel={workspaceLabel}
                     sessionProps={projectSidebarCtx.sessionProps}
+                    setScrollContainerRef={workspaceSidebarCtx.setScrollContainerRef}
                   />
                 </Show>
               )}
@@ -2244,7 +2266,7 @@ export default function Layout(props: ParentProps) {
 
         <div
           class="hidden xl:block pointer-events-none absolute top-0 right-0 z-0 border-t border-border-weaker-base"
-          style={{ left: "calc(4rem + 12px)" }}
+          style={{ left: treeMode() ? "12px" : "calc(4rem + 12px)" }}
         />
 
         <div class="xl:hidden">
@@ -2304,7 +2326,7 @@ export default function Layout(props: ParentProps) {
               !sizing(),
           }}
           style={{
-            "--main-left": layout.sidebar.opened() ? `${Math.max(layout.sidebar.width(), 244)}px` : "4rem",
+            "--main-left": desktopMainLeft(),
           }}
         >
           <main
@@ -2320,7 +2342,7 @@ export default function Layout(props: ParentProps) {
 
         <div
           classList={{
-            "hidden xl:flex absolute inset-y-0 left-16 z-30": true,
+            "hidden xl:flex absolute inset-y-0 left-16 z-30": !treeMode(),
             "opacity-100 translate-x-0 pointer-events-auto": peeked() && !layout.sidebar.opened(),
             "opacity-0 -translate-x-2 pointer-events-none": !peeked() || layout.sidebar.opened(),
             "transition-[opacity,transform] motion-reduce:transition-none": true,
@@ -2344,7 +2366,7 @@ export default function Layout(props: ParentProps) {
 
         <div
           classList={{
-            "hidden xl:block pointer-events-none absolute inset-y-0 right-0 z-25 overflow-hidden": true,
+            "hidden xl:block pointer-events-none absolute inset-y-0 right-0 z-25 overflow-hidden": !treeMode(),
             "opacity-100 translate-x-0": peeked() && !layout.sidebar.opened(),
             "opacity-0 -translate-x-2": !peeked() || layout.sidebar.opened(),
             "transition-[opacity,transform] motion-reduce:transition-none": true,
