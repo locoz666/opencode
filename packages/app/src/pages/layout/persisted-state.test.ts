@@ -10,7 +10,7 @@ const parse = <T>(defaults: T, value: unknown, migrate?: (value: unknown) => unk
 }
 
 describe("layout sidebar mode persistence", () => {
-  test("migrates legacy workspace toggle and defaults mode to classic", () => {
+  test("migrates legacy workspace toggle and defaults mode to tree", () => {
     const store = parse(
       defaultLayoutState(),
       {
@@ -28,7 +28,7 @@ describe("layout sidebar mode persistence", () => {
     expect(store?.sidebar.workspacesDefault).toBe(true)
   })
 
-  test("defaults missing sidebar mode to classic", () => {
+  test("defaults missing sidebar mode to tree", () => {
     const store = parse(
       defaultLayoutState(),
       {
@@ -45,7 +45,7 @@ describe("layout sidebar mode persistence", () => {
     expect(store?.sidebar.mode).toBe(DEFAULT_SIDEBAR_MODE)
   })
 
-  test("falls back to classic for invalid sidebar mode", () => {
+  test("falls back to tree for invalid sidebar mode", () => {
     const store = parse(
       defaultLayoutState(),
       {
@@ -63,13 +63,13 @@ describe("layout sidebar mode persistence", () => {
     expect(store?.sidebar.mode).toBe(DEFAULT_SIDEBAR_MODE)
   })
 
-  test("keeps tree sidebar mode when persisted value is valid", () => {
+  test("normalizes persisted classic mode to tree", () => {
     const store = parse(
       defaultLayoutState(),
       {
         sidebar: {
           opened: false,
-          mode: "tree",
+          mode: "classic",
           width: 280,
           workspaces: {},
           workspacesDefault: false,

@@ -16,10 +16,10 @@ const AVATAR_COLOR_KEYS = ["pink", "mint", "orange", "purple", "cyan", "lime"] a
 const DEFAULT_PANEL_WIDTH = 344
 const DEFAULT_SESSION_WIDTH = 600
 const DEFAULT_TERMINAL_HEIGHT = 280
-const SIDEBAR_MODES = ["classic", "tree"] as const
+const SIDEBAR_MODES = ["tree"] as const
 export type AvatarColorKey = (typeof AVATAR_COLOR_KEYS)[number]
 export type SidebarMode = (typeof SIDEBAR_MODES)[number]
-export const DEFAULT_SIDEBAR_MODE: SidebarMode = "classic"
+export const DEFAULT_SIDEBAR_MODE: SidebarMode = "tree"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
