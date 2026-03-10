@@ -54,7 +54,7 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
     const permissionsEnabled = createMemo(() => {
       const directory = decode64(params.dir)
       if (!directory) return false
-      const [store] = globalSync.child(directory)
+      const [store] = globalSync.child(directory, { bootstrap: false })
       return hasPermissionPromptRules(store.config.permission)
     })
 
@@ -86,7 +86,7 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
       if (!ready()) return
       const directory = decode64(params.dir)
       if (!directory) return
-      const [childStore] = globalSync.child(directory)
+      const [childStore] = globalSync.child(directory, { bootstrap: false })
       const perm = childStore.config.permission
       if (typeof perm === "string" && perm === "allow") {
         const key = directoryAcceptKey(directory)
@@ -268,7 +268,7 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
       },
       permissionsEnabled,
       isPermissionAllowAll(directory: string) {
-        const [childStore] = globalSync.child(directory)
+        const [childStore] = globalSync.child(directory, { bootstrap: false })
         const perm = childStore.config.permission
         return typeof perm === "string" && perm === "allow"
       },

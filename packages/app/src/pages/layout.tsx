@@ -166,7 +166,6 @@ export default function Layout(props: ParentProps) {
     active: () => state.hoverProject,
     el: () => state.nav?.querySelector<HTMLElement>("[data-component='sidebar-rail']") ?? state.nav,
     onActivate: (directory) => {
-      globalSync.child(directory)
       setState("hoverProject", directory)
       setState("hoverSession", undefined)
     },

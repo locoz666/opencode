@@ -21,7 +21,7 @@ export function useProviders() {
   const currentDirectory = createMemo(() => decode64(params.dir) ?? "")
   const providers = createMemo(() => {
     if (currentDirectory()) {
-      const [projectStore] = globalSync.child(currentDirectory())
+      const [projectStore] = globalSync.child(currentDirectory(), { bootstrap: false })
       return projectStore.provider
     }
     return globalSync.data.provider
