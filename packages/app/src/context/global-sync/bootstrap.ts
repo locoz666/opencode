@@ -113,6 +113,7 @@ function groupBySession<T extends { id: string; sessionID: string }>(input: T[])
 
 export async function bootstrapDirectory(input: {
   directory: string
+  path?: Path
   sdk: OpencodeClient
   store: Store<State>
   setStore: SetStoreFunction<State>
@@ -148,8 +149,9 @@ export async function bootstrapDirectory(input: {
 
   if (input.store.status !== "complete") input.setStore("status", "partial")
 
+  const path = input.path
   Promise.all([
-    input.sdk.path.get().then((x) => input.setStore("path", x.data!)),
+    (path ? Promise.resolve(path) : input.sdk.path.get().then((x) => x.data!)).then((x) => input.setStore("path", x)),
     input.sdk.command.list().then((x) => input.setStore("command", x.data ?? [])),
     input.sdk.session.status().then((x) => input.setStore("session_status", x.data!)),
     input.loadSessions(input.directory),

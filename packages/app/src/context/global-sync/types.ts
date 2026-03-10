@@ -9,7 +9,6 @@ import type {
   Part,
   Path,
   PermissionRequest,
-  Project,
   ProviderListResponse,
   QuestionRequest,
   Session,
@@ -92,6 +91,7 @@ export type IconCache = {
 
 export type ChildOptions = {
   bootstrap?: boolean
+  path?: Path
 }
 
 export type DirState = {

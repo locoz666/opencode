@@ -11,6 +11,7 @@ import { base64Encode } from "@opencode-ai/util/encode"
 import { decode64 } from "@/utils/base64"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import type { Path } from "@opencode-ai/sdk/v2/client"
 function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
   const navigate = useNavigate()
   const sync = useSync()
@@ -35,7 +36,7 @@ export default function Layout(props: ParentProps) {
   const language = useLanguage()
   const globalSDK = useGlobalSDK()
   const directory = createMemo(() => decode64(params.dir) ?? "")
-  const [state, setState] = createStore({ invalid: "", resolved: "" })
+  const [state, setState] = createStore({ invalid: "", resolved: "", path: undefined as Path | undefined })
 
   createEffect(() => {
     if (!params.dir) return
@@ -65,6 +66,7 @@ export default function Layout(props: ParentProps) {
         batch(() => {
           setState("invalid", "")
           setState("resolved", next)
+          setState("path", x.data)
         })
         if (next === raw) return
         const path = location.pathname.slice(current.length + 1)
@@ -75,6 +77,7 @@ export default function Layout(props: ParentProps) {
         batch(() => {
           setState("invalid", "")
           setState("resolved", raw)
+          setState("path", undefined)
         })
       })
   })
@@ -83,7 +86,7 @@ export default function Layout(props: ParentProps) {
     <Show when={state.resolved}>
       {(resolved) => (
         <SDKProvider directory={resolved}>
-          <SyncProvider>
+          <SyncProvider path={() => state.path}>
             <DirectoryDataProvider directory={resolved()}>{props.children}</DirectoryDataProvider>
           </SyncProvider>
         </SDKProvider>

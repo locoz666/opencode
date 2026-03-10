@@ -19,7 +19,7 @@ export function createChildStoreManager(input: {
   owner: Owner
   isBooting: (directory: string) => boolean
   isLoadingSessions: (directory: string) => boolean
-  onBootstrap: (directory: string) => void
+  onBootstrap: (directory: string, path?: State["path"]) => void
   onDispose: (directory: string) => void
 }) {
   const children: Record<string, [Store<State>, SetStoreFunction<State>]> = {}
@@ -220,7 +220,7 @@ export function createChildStoreManager(input: {
     pinForOwner(directory)
     const shouldBootstrap = options.bootstrap ?? true
     if (shouldBootstrap && childStore[0].status === "loading") {
-      input.onBootstrap(directory)
+      input.onBootstrap(directory, options.path)
     }
     return childStore
   }

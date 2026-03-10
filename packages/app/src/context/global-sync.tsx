@@ -154,8 +154,8 @@ function createGlobalSync() {
     owner,
     isBooting: (directory) => booting.has(directory),
     isLoadingSessions: (directory) => sessionLoads.has(directory),
-    onBootstrap: (directory) => {
-      void bootstrapInstance(directory)
+    onBootstrap: (directory, path) => {
+      void bootstrapInstance(directory, path)
     },
     onDispose: (directory) => {
       queue.clear(directory)
@@ -242,7 +242,7 @@ function createGlobalSync() {
     return promise
   }
 
-  async function bootstrapInstance(directory: string) {
+  async function bootstrapInstance(directory: string, path?: Path) {
     if (!directory) return
     const pending = booting.get(directory)
     if (pending) return pending
@@ -255,6 +255,7 @@ function createGlobalSync() {
       const sdk = sdkFor(directory)
       await bootstrapDirectory({
         directory,
+        path,
         sdk,
         store: child[0],
         setStore: child[1],

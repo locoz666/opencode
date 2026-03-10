@@ -5,7 +5,7 @@ import { retry } from "@opencode-ai/util/retry"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
-import type { Message, Part } from "@opencode-ai/sdk/v2/client"
+import type { Message, Part, Path } from "@opencode-ai/sdk/v2/client"
 import { SESSION_CACHE_LIMIT, dropSessionCaches, pickSessionCacheEvictions } from "./global-sync/session-cache"
 
 function sortParts(parts: Part[]) {
@@ -92,14 +92,14 @@ function setOptimisticRemove(setStore: (...args: unknown[]) => void, input: Opti
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
-  init: () => {
+  init: (props: { path?: () => Path | undefined }) => {
     const globalSync = useGlobalSync()
     const sdk = useSDK()
 
     type Child = ReturnType<(typeof globalSync)["child"]>
     type Setter = Child[1]
 
-    const current = createMemo(() => globalSync.child(sdk.directory))
+    const current = createMemo(() => globalSync.child(sdk.directory, { path: props.path?.() }))
     const target = (directory?: string) => {
       if (!directory || directory === sdk.directory) return current()
       return globalSync.child(directory)
