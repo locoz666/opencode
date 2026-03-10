@@ -181,7 +181,7 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
               </div>
 
               <Collapsible.Content>
-                <div class="flex flex-col gap-1 px-2 pb-2">
+                <div class="flex w-full min-w-0 flex-col gap-1 px-2 pb-2">
                   <For each={item.workspaces}>
                     {(workspace) => (
                       <Collapsible
@@ -221,7 +221,7 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
                           </Collapsible.Trigger>
                         </div>
                         <Collapsible.Content>
-                          <div class="flex flex-col gap-1 pl-6">
+                          <div class="flex w-full min-w-0 flex-col gap-1 pl-6">
                             {leaves(workspace.leaves, child, props.sessionProps, props.mobile)}
                           </div>
                         </Collapsible.Content>
