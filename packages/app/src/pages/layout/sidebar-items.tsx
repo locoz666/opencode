@@ -113,7 +113,7 @@ const SessionRow = (props: {
       props.clearHoverProjectSoon()
     }}
   >
-    <div class="flex items-center gap-1 w-full">
+    <div class="flex min-w-0 flex-1 items-center gap-1 overflow-hidden pr-1">
       <div
         class="shrink-0 size-6 flex items-center justify-center"
         style={{ color: props.tint() ?? "var(--icon-interactive-base)" }}
@@ -133,7 +133,7 @@ const SessionRow = (props: {
           </Match>
         </Switch>
       </div>
-      <span class="text-14-regular text-text-strong grow min-w-0 overflow-hidden text-ellipsis truncate">
+      <span class="text-14-regular text-text-strong flex-1 min-w-0 overflow-hidden pr-2 text-ellipsis truncate">
         {props.session.title}
       </span>
     </div>
@@ -360,11 +360,11 @@ export const NewSessionItem = (props: {
         props.clearHoverProjectSoon()
       }}
     >
-      <div class="flex items-center gap-1 w-full">
+      <div class="flex min-w-0 flex-1 items-center gap-1 overflow-hidden pr-1">
         <div class="shrink-0 size-6 flex items-center justify-center">
           <Icon name="plus-small" size="small" class="text-icon-weak" />
         </div>
-        <span class="text-14-regular text-text-strong grow-1 min-w-0 overflow-hidden text-ellipsis truncate">
+        <span class="text-14-regular text-text-strong flex-1 min-w-0 overflow-hidden pr-2 text-ellipsis truncate">
           {label}
         </span>
       </div>
