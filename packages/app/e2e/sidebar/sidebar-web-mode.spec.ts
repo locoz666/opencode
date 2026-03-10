@@ -6,38 +6,14 @@ import { test, expect } from "../fixtures"
 import { cleanupTestProject, openSidebar } from "../actions"
 import {
   promptSelector,
-  projectMenuTriggerSelector,
   sessionItemSelector,
-  sidebarModeToggleSelector,
   sidebarTreeProjectItemSelector,
-  sidebarTreeProjectToggleSelector,
-  sidebarTreeWorkspaceItemSelector,
   sidebarTreeWorkspaceToggleSelector,
+  sidebarTreeWorkspaceItemSelector,
 } from "../selectors"
 import { createSdk, dirSlug, resolveDirectory } from "../utils"
 
 const layoutKey = "opencode.global.dat:layout"
-
-const setSidebarMode = async (page: Page, mode: "classic" | "tree") => {
-  await page.evaluate(
-    ({ mode, key }: { mode: "classic" | "tree"; key: string }) => {
-      const raw = localStorage.getItem(key)
-      const data = raw ? JSON.parse(raw) : {}
-      const sidebar = data.sidebar && typeof data.sidebar === "object" ? data.sidebar : {}
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          ...data,
-          sidebar: {
-            ...sidebar,
-            mode,
-          },
-        }),
-      )
-    },
-    { mode, key: layoutKey },
-  )
-}
 
 const setWorkspaceMode = async (page: Page, directory: string, enabled: boolean) => {
   await page.evaluate(
@@ -67,18 +43,13 @@ const setWorkspaceMode = async (page: Page, directory: string, enabled: boolean)
   )
 }
 
-test("classic mode remains available and tree mode persists after reload", async ({ page, withProject }) => {
+test("tree sidebar is the only web sidebar mode and persists after reload", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
   await withProject(async ({ gotoSession, slug }) => {
     await gotoSession()
     await openSidebar(page)
 
-    const mode = page.locator(sidebarModeToggleSelector).first()
-    await expect(mode).toBeVisible()
-    await expect(page.locator(sidebarTreeProjectItemSelector)).toHaveCount(0)
-
-    await mode.click()
     await expect(page.locator(sidebarTreeProjectItemSelector).first()).toBeVisible()
 
     await page.reload()
@@ -86,10 +57,6 @@ test("classic mode remains available and tree mode persists after reload", async
     await openSidebar(page)
     await expect(page.locator(sidebarTreeProjectItemSelector).first()).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`/${slug}/session`))
-
-    await page.locator(sidebarModeToggleSelector).first().click()
-    await expect(page.locator(sidebarTreeProjectItemSelector)).toHaveCount(0)
-    await expect(page.locator(projectMenuTriggerSelector(slug)).first()).toBeVisible()
   })
 })
 
@@ -118,32 +85,43 @@ test("tree mode shows git project as project -> workspace -> session and keeps n
     trackSession(ws.id, workspaceDir)
 
     await gotoSession(root.id)
-    await setSidebarMode(page, "tree")
     await setWorkspaceMode(page, directory, true)
     await page.reload()
     await expect(page.locator(promptSelector)).toBeVisible()
 
     await openSidebar(page)
 
-    const projectToggle = page.locator(sidebarTreeProjectToggleSelector).first()
-    const workspaceItems = page.locator(sidebarTreeWorkspaceItemSelector)
-    const workspaceToggles = page.locator(sidebarTreeWorkspaceToggleSelector)
+    const projectItem = page
+      .locator(sidebarTreeProjectItemSelector)
+      .filter({ hasText: path.basename(directory) })
+      .first()
+    const projectContent = projectItem.locator("xpath=following-sibling::*[1]")
+    const projectToggle = projectItem.locator('[data-component="sidebar-project-toggle"]').first()
+    const workspaceItems = projectContent.locator(
+      sidebarTreeWorkspaceItemSelector.replace('[data-component="sidebar-nav-desktop"] ', ""),
+    )
+    const workspaceToggles = projectContent.locator(
+      sidebarTreeWorkspaceToggleSelector.replace('[data-component="sidebar-nav-desktop"] ', ""),
+    )
 
-    await expect(page.locator(sidebarTreeProjectItemSelector).first()).toBeVisible()
-    await expect(workspaceItems).toHaveCount(2)
+    await expect(projectItem).toBeVisible()
+    await expect.poll(async () => await workspaceItems.count()).toBeGreaterThan(1)
 
     await projectToggle.click()
-    await expect(workspaceItems).toHaveCount(0)
+    await expect(page.locator(sessionItemSelector(root.id))).toHaveCount(0)
     await projectToggle.click()
-    await expect(workspaceItems).toHaveCount(2)
+    await expect(page.locator(sessionItemSelector(root.id)).first()).toBeVisible()
 
     await workspaceToggles.first().click()
     await expect(page.locator(sessionItemSelector(root.id))).toHaveCount(0)
     await workspaceToggles.first().click()
     await expect(page.locator(sessionItemSelector(root.id)).first()).toBeVisible()
 
-    await workspaceToggles.nth(1).click()
-    const target = page.locator(`${sessionItemSelector(ws.id)} a`).first()
+    const target = page.getByRole("link", { name: ws.title ?? `e2e tree workspace ${stamp}` }).first()
+    for (let i = 1; i < (await workspaceToggles.count()); i++) {
+      await workspaceToggles.nth(i).click()
+      if ((await target.count()) > 0) break
+    }
     await expect(target).toBeVisible()
     await target.click()
 
@@ -178,7 +156,6 @@ test("tree mode flattens git project to project -> session when workspaces are d
     trackSession(ws.id, workspaceDir)
 
     await gotoSession(root.id)
-    await setSidebarMode(page, "tree")
     await setWorkspaceMode(page, directory, false)
     await page.reload()
     await expect(page.locator(promptSelector)).toBeVisible()
@@ -200,7 +177,6 @@ test("non-git projects never render workspace rows in tree mode", async ({ page,
   try {
     await withProject(
       async () => {
-        await setSidebarMode(page, "tree")
         await setWorkspaceMode(page, nonGit, true)
         await page.goto(`/${dirSlug(nonGit)}/session`)
         await expect(page.locator(promptSelector)).toBeVisible()

@@ -64,8 +64,6 @@ export const workspaceMenuTriggerSelector = (slug: string) =>
 export const workspaceNewSessionSelector = (slug: string) =>
   `${sidebarNavSelector} [data-action="workspace-new-session"][data-workspace="${slug}"]`
 
-export const sidebarModeToggleSelector = `${sidebarNavSelector} [data-action="sidebar-mode-toggle"]`
-
 export const sidebarTreeProjectItemSelector = `${sidebarNavSelector} [data-component="sidebar-project-item"]`
 
 export const sidebarTreeProjectToggleSelector = `${sidebarNavSelector} [data-component="sidebar-project-toggle"]`
