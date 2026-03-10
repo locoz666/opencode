@@ -101,7 +101,7 @@ const SessionRow = (props: {
 }): JSX.Element => (
   <A
     href={`/${props.slug}/session/${props.session.id}`}
-    class={`flex items-center justify-between gap-3 min-w-0 text-left w-full focus:outline-none pr-7 transition-[padding] ${props.dense ? "py-0.5" : "py-1"}`}
+    class={`flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden pr-7 text-left transition-[padding] focus:outline-none ${props.dense ? "py-0.5" : "py-1"}`}
     onPointerEnter={props.scheduleHoverPrefetch}
     onPointerLeave={props.cancelHoverPrefetch}
     onMouseEnter={props.scheduleHoverPrefetch}
@@ -155,6 +155,7 @@ const SessionHoverPreview = (props: {
   messageLabel: (message: Message) => string | undefined
   onMessageSelect: (message: Message) => void
   trigger: JSX.Element
+  triggerClass?: string
 }): JSX.Element => (
   <HoverCard
     openDelay={1000}
@@ -163,6 +164,7 @@ const SessionHoverPreview = (props: {
     gutter={16}
     shift={-2}
     trigger={props.trigger}
+    triggerClass={props.triggerClass}
     open={props.hoverSession() === props.session.id}
     onOpenChange={(open) => props.setHoverSession(open ? props.session.id : undefined)}
   >
@@ -276,7 +278,7 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
   return (
     <div
       data-session-id={props.session.id}
-      class="group/session relative w-full min-w-0 rounded-md cursor-default transition-colors pl-2 pr-3
+      class="group/session relative w-full min-w-0 max-w-full overflow-hidden rounded-md cursor-default transition-colors pl-2 pr-3
              hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[[data-expanded]]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active"
     >
       <Show
@@ -307,6 +309,7 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
             navigate(`${props.slug}/session/${props.session.id}#message-${message.id}`)
           }}
           trigger={item}
+          triggerClass="w-full min-w-0"
         />
       </Show>
 
@@ -372,7 +375,7 @@ export const NewSessionItem = (props: {
   )
 
   return (
-    <div class="group/session relative w-full min-w-0 rounded-md cursor-default transition-colors pl-2 pr-3 hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active">
+    <div class="group/session relative w-full min-w-0 max-w-full overflow-hidden rounded-md cursor-default transition-colors pl-2 pr-3 hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active">
       <Show
         when={!tooltip()}
         fallback={

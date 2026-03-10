@@ -249,7 +249,7 @@ const WorkspaceSessionList = (props: {
   loadMore: () => Promise<void>
   language: ReturnType<typeof useLanguage>
 }): JSX.Element => (
-  <nav class="flex flex-col gap-1 px-3">
+  <nav class="flex min-w-0 w-full flex-col gap-1 overflow-x-hidden px-3">
     <Show when={props.showNew()}>
       <NewSessionItem
         slug={props.slug()}
@@ -357,23 +357,24 @@ export const SortableWorkspace = (props: {
       // @ts-ignore
       use:sortable
       classList={{
+        "min-w-0 w-full": true,
         "opacity-30": sortable.isActiveDraggable,
         "opacity-50 pointer-events-none": busy(),
       }}
     >
-      <Collapsible variant="ghost" open={open()} class="shrink-0" onOpenChange={openWrapper}>
-        <div class="px-2 py-1">
+      <Collapsible variant="ghost" open={open()} class="min-w-0 w-full shrink-0" onOpenChange={openWrapper}>
+        <div class="w-full min-w-0 px-2 py-1">
           <div
-            class="group/workspace relative"
+            class="group/workspace relative w-full min-w-0"
             data-component="workspace-item"
             data-workspace={base64Encode(props.directory)}
           >
-            <div class="flex items-center gap-1">
+            <div class="flex w-full min-w-0 items-center gap-1">
               <Show
                 when={workspaceEditActive()}
                 fallback={
                   <Collapsible.Trigger
-                    class={`flex items-center justify-between w-full pl-2 py-1.5 rounded-md hover:bg-surface-raised-base-hover transition-[padding] duration-200 ${
+                    class={`flex min-w-0 items-center justify-between w-full pl-2 py-1.5 rounded-md hover:bg-surface-raised-base-hover transition-[padding] duration-200 ${
                       menu.open ? "pr-16" : "pr-2"
                     } group-hover/workspace:pr-16 group-focus-within/workspace:pr-16`}
                     data-action="workspace-toggle"
@@ -397,7 +398,7 @@ export const SortableWorkspace = (props: {
                 }
               >
                 <div
-                  class={`flex items-center justify-between w-full pl-2 py-1.5 rounded-md transition-[padding] duration-200 ${
+                  class={`flex min-w-0 items-center justify-between w-full pl-2 py-1.5 rounded-md transition-[padding] duration-200 ${
                     menu.open ? "pr-16" : "pr-2"
                   } group-hover/workspace:pr-16 group-focus-within/workspace:pr-16`}
                 >
@@ -443,7 +444,7 @@ export const SortableWorkspace = (props: {
           </div>
         </div>
 
-        <Collapsible.Content>
+        <Collapsible.Content class="min-w-0 w-full overflow-x-hidden">
           <WorkspaceSessionList
             slug={slug}
             mobile={props.mobile}
@@ -488,9 +489,9 @@ export const LocalWorkspace = (props: {
   return (
     <div
       ref={(el) => props.ctx.setScrollContainerRef(el, props.mobile)}
-      class="size-full flex flex-col py-2 overflow-y-auto no-scrollbar [overflow-anchor:none]"
+      class="size-full min-w-0 w-full overflow-x-hidden flex flex-col py-2 overflow-y-auto no-scrollbar [overflow-anchor:none]"
     >
-      <nav class="flex flex-col gap-1 px-3">
+      <nav class="flex min-w-0 w-full flex-col gap-1 overflow-x-hidden px-3">
         <Show when={loading()}>
           <SessionSkeleton />
         </Show>

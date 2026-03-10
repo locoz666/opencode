@@ -3,17 +3,18 @@ import { ComponentProps, JSXElement, ParentProps, splitProps } from "solid-js"
 
 export interface HoverCardProps extends ParentProps, Omit<ComponentProps<typeof Kobalte>, "children"> {
   trigger: JSXElement
+  triggerClass?: ComponentProps<"div">["class"]
   mount?: HTMLElement
   class?: ComponentProps<"div">["class"]
   classList?: ComponentProps<"div">["classList"]
 }
 
 export function HoverCard(props: HoverCardProps) {
-  const [local, rest] = splitProps(props, ["trigger", "mount", "class", "classList", "children"])
+  const [local, rest] = splitProps(props, ["trigger", "triggerClass", "mount", "class", "classList", "children"])
 
   return (
     <Kobalte gutter={4} {...rest}>
-      <Kobalte.Trigger as="div" data-slot="hover-card-trigger">
+      <Kobalte.Trigger as="div" data-slot="hover-card-trigger" class={local.triggerClass}>
         {local.trigger}
       </Kobalte.Trigger>
       <Kobalte.Portal mount={local.mount}>

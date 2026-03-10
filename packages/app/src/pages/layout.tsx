@@ -1944,7 +1944,7 @@ export default function Layout(props: ParentProps) {
     return (
       <div
         classList={{
-          "flex flex-col min-h-0 min-w-0 rounded-tl-[12px] px-2": true,
+          "flex flex-col min-h-0 min-w-0 overflow-x-hidden rounded-tl-[12px] px-2": true,
           "border border-b-0 border-border-weak-base": !merged(),
           "border-l border-t border-border-weaker-base": merged(),
           "bg-background-base": merged() || hover(),
@@ -2041,7 +2041,7 @@ export default function Layout(props: ParentProps) {
                 </div>
               </div>
 
-              <div class="flex-1 min-h-0 flex flex-col">
+              <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden">
                 <Show
                   when={workspacesEnabled()}
                   fallback={
