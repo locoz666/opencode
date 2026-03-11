@@ -1718,6 +1718,23 @@ export default function Layout(props: ParentProps) {
     setStore("activeProject", undefined)
   }
 
+  function reorderWorkspace(root: string, from: string, to: string) {
+    if (from === to) return
+    setStore("workspaceOrder", root, (prev) => {
+      const project = layout.projects.list().find((item) => item.worktree === root)
+      const dirs = project ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], prev) : [root]
+      const list = dirs.filter((item) => item !== root)
+      const fromIndex = list.findIndex((item) => item === from)
+      const toIndex = list.findIndex((item) => item === to)
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev
+      const next = [...list]
+      const [item] = next.splice(fromIndex, 1)
+      if (!item) return prev
+      next.splice(toIndex, 0, item)
+      return next
+    })
+  }
+
   function workspaceIds(project: LocalProject | undefined) {
     if (!project) return []
     const local = project.worktree
@@ -1914,7 +1931,13 @@ export default function Layout(props: ParentProps) {
                   }
                   workspaceIds={workspaceIds}
                   workspaceLabel={workspaceLabel}
+                  workspaceBusy={(directory) => workspaceSidebarCtx.isBusy(directory)}
+                  workspaceEdit={(id) => workspaceSidebarCtx.editorOpen(id)}
+                  openWorkspaceEditor={(id, value) => workspaceSidebarCtx.openEditor(id, value)}
+                  renameWorkspace={workspaceSidebarCtx.renameWorkspace}
+                  InlineEditor={workspaceSidebarCtx.InlineEditor}
                   onToggleProjectWorkspaces={toggleProjectWorkspaces}
+                  onReorderWorkspace={reorderWorkspace}
                   onCreateWorkspace={createWorkspace}
                   onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
                   onDeleteWorkspace={(root, directory) =>
@@ -2018,7 +2041,13 @@ export default function Layout(props: ParentProps) {
                   }
                   workspaceIds={workspaceIds}
                   workspaceLabel={workspaceLabel}
+                  workspaceBusy={(directory) => workspaceSidebarCtx.isBusy(directory)}
+                  workspaceEdit={(id) => workspaceSidebarCtx.editorOpen(id)}
+                  openWorkspaceEditor={(id, value) => workspaceSidebarCtx.openEditor(id, value)}
+                  renameWorkspace={workspaceSidebarCtx.renameWorkspace}
+                  InlineEditor={workspaceSidebarCtx.InlineEditor}
                   onToggleProjectWorkspaces={toggleProjectWorkspaces}
+                  onReorderWorkspace={reorderWorkspace}
                   onCreateWorkspace={createWorkspace}
                   onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
                   onDeleteWorkspace={(root, directory) =>
