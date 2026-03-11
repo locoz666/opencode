@@ -137,6 +137,13 @@ export const SettingsGeneral: Component = () => {
   ] as const
   const fontOptionsList = [...fontOptions]
 
+  const sessionWidthOptions = [
+    { value: "narrow" as const, label: "settings.general.row.sessionWidth.option.narrow" },
+    { value: "wide" as const, label: "settings.general.row.sessionWidth.option.wide" },
+    { value: "auto" as const, label: "settings.general.row.sessionWidth.option.auto" },
+  ]
+  const sessionWidthOptionsList = [...sessionWidthOptions]
+
   const noneSound = { id: "none", label: "sound.option.none", src: undefined } as const
   const soundOptions = [noneSound, ...SOUND_OPTIONS]
 
@@ -266,6 +273,23 @@ export const SettingsGeneral: Component = () => {
               </span>
             )}
           </Select>
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.sessionWidth.title")}
+          description={language.t("settings.general.row.sessionWidth.description")}
+        >
+          <Select
+            data-action="settings-session-width"
+            options={sessionWidthOptionsList}
+            current={sessionWidthOptionsList.find((o) => o.value === settings.appearance.sessionWidth())}
+            value={(o) => o.value}
+            label={(o) => language.t(o.label)}
+            onSelect={(option) => option && settings.appearance.setSessionWidth(option.value)}
+            variant="secondary"
+            size="small"
+            triggerVariant="settings"
+          />
         </SettingsRow>
       </div>
     </div>

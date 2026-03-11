@@ -18,6 +18,8 @@ export interface SoundSettings {
   errors: string
 }
 
+export type SessionWidthMode = "narrow" | "wide" | "auto"
+
 export interface Settings {
   general: {
     autoSave: boolean
@@ -32,6 +34,7 @@ export interface Settings {
   appearance: {
     fontSize: number
     font: string
+    sessionWidth: SessionWidthMode
   }
   keybinds: Record<string, string>
   permissions: {
@@ -55,6 +58,7 @@ const defaultSettings: Settings = {
   appearance: {
     fontSize: 14,
     font: "ibm-plex-mono",
+    sessionWidth: "narrow",
   },
   keybinds: {},
   permissions: {
@@ -162,6 +166,10 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         font: withFallback(() => store.appearance?.font, defaultSettings.appearance.font),
         setFont(value: string) {
           setStore("appearance", "font", value)
+        },
+        sessionWidth: withFallback(() => store.appearance?.sessionWidth, defaultSettings.appearance.sessionWidth),
+        setSessionWidth(value: SessionWidthMode) {
+          setStore("appearance", "sessionWidth", value)
         },
       },
       keybinds: {
