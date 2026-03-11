@@ -66,11 +66,26 @@ export const workspaceNewSessionSelector = (slug: string) =>
 
 export const sidebarTreeProjectItemSelector = `${sidebarNavSelector} [data-component="sidebar-project-item"]`
 
+export const sidebarTreeProjectRowSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-component="sidebar-project-item"][data-project="${slug}"]`
+
 export const sidebarTreeProjectToggleSelector = `${sidebarNavSelector} [data-component="sidebar-project-toggle"]`
+
+export const sidebarTreeProjectNewWorkspaceSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-action="project-new-workspace"][data-project="${slug}"]`
 
 export const sidebarTreeWorkspaceItemSelector = `${sidebarNavSelector} [data-component="sidebar-workspace-item"]`
 
+export const sidebarTreeWorkspaceRowSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-component="sidebar-workspace-item"][data-workspace="${slug}"]`
+
 export const sidebarTreeWorkspaceToggleSelector = `${sidebarNavSelector} [data-component="sidebar-workspace-toggle"]`
+
+export const sidebarTreeWorkspaceMenuTriggerSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-action="workspace-menu"][data-workspace="${slug}"]`
+
+export const sidebarTreeWorkspaceDeleteSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-action="workspace-delete"][data-workspace="${slug}"]`
 
 export const listItemSelector = '[data-slot="list-item"]'
 

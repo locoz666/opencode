@@ -1,15 +1,20 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { base64Decode } from "@opencode-ai/util/encode"
 import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
-import { cleanupTestProject, openSidebar } from "../actions"
+import { cleanupTestProject, confirmDialog, openSidebar, waitSlug } from "../actions"
 import {
   promptSelector,
   sessionItemSelector,
   sidebarTreeProjectItemSelector,
+  sidebarTreeProjectNewWorkspaceSelector,
+  sidebarTreeProjectRowSelector,
   sidebarTreeWorkspaceToggleSelector,
+  sidebarTreeWorkspaceDeleteSelector,
   sidebarTreeWorkspaceItemSelector,
+  sidebarTreeWorkspaceRowSelector,
 } from "../selectors"
 import { createSdk, dirSlug, resolveDirectory } from "../utils"
 
@@ -41,6 +46,13 @@ const setWorkspaceMode = async (page: Page, directory: string, enabled: boolean)
     },
     { key: layoutKey, directory, enabled },
   )
+}
+
+const openTree = async (page: Page, directory: string, enabled = true) => {
+  await setWorkspaceMode(page, directory, enabled)
+  await page.reload()
+  await expect(page.locator(promptSelector)).toBeVisible()
+  await openSidebar(page)
 }
 
 test("tree sidebar is the only web sidebar mode and persists after reload", async ({ page, withProject }) => {
@@ -105,7 +117,9 @@ test("tree mode shows git project as project -> workspace -> session and keeps n
     )
 
     await expect(projectItem).toBeVisible()
-    await expect.poll(async () => await workspaceItems.count()).toBeGreaterThan(1)
+    await expect(workspaceItems).toHaveCount(2)
+    await expect(workspaceItems.first()).toContainText(/local/i)
+    await expect(workspaceItems.nth(1)).toContainText(/sandbox/i)
 
     await projectToggle.click()
     await expect(page.locator(sessionItemSelector(root.id))).toHaveCount(0)
@@ -128,6 +142,99 @@ test("tree mode shows git project as project -> workspace -> session and keeps n
     const slug = dirSlug(workspaceDir)
     await expect(page).toHaveURL(new RegExp(`/${slug}/session/${ws.id}(?:[/?#]|$)`))
     await expect(page.locator(`${sessionItemSelector(ws.id)} a`).first()).toHaveClass(/\bactive\b/)
+  })
+})
+
+test("tree mode can create a workspace from the project row", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ directory, gotoSession, slug, trackDirectory }) => {
+    const sdk = createSdk(directory)
+
+    await gotoSession()
+    await openTree(page, directory)
+
+    const before = await sdk.worktree.list().then((r) => r.data ?? [])
+    const projectItem = page.locator(sidebarTreeProjectRowSelector(slug)).first()
+    await expect(projectItem).toBeVisible()
+    await projectItem.hover()
+
+    const create = page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first()
+    await expect(create).toBeVisible()
+    await create.click()
+
+    const workspaceSlug = await waitSlug(page, [slug])
+    const workspaceDir = await resolveDirectory(base64Decode(workspaceSlug))
+    trackDirectory(workspaceDir)
+
+    await expect(page).toHaveURL(new RegExp(`/${workspaceSlug}/session(?:[/?#]|$)`))
+    await expect
+      .poll(async () => (await sdk.worktree.list().then((r) => r.data ?? [])).length)
+      .toBeGreaterThan(before.length)
+    await expect
+      .poll(async () => (await sdk.worktree.list().then((r) => r.data ?? [])).includes(workspaceDir))
+      .toBe(true)
+
+    await openSidebar(page)
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug)).first()).toBeVisible()
+  })
+})
+
+test("tree mode can delete a workspace and keep it gone after reload", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ directory, gotoSession, slug, trackDirectory }) => {
+    const sdk = createSdk(directory)
+    const created = await sdk.worktree.create().then((r) => r.data)
+    if (!created?.directory) throw new Error("Failed to create workspace")
+    const workspaceDir = await resolveDirectory(created.directory)
+    const workspaceSlug = dirSlug(workspaceDir)
+    trackDirectory(workspaceDir)
+
+    await gotoSession()
+    await openTree(page, directory)
+    const row = page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug)).first()
+    await expect(row).toBeVisible()
+    await row.hover()
+
+    const del = page.locator(sidebarTreeWorkspaceDeleteSelector(workspaceSlug)).first()
+    await expect(del).toBeVisible()
+    await del.click()
+    await confirmDialog(page, /^Delete workspace$/i)
+
+    await expect(page).toHaveURL(new RegExp(`/${slug}/session(?:[/?#]|$)`))
+    await expect
+      .poll(async () => (await sdk.worktree.list().then((r) => r.data ?? [])).includes(workspaceDir), {
+        timeout: 60_000,
+      })
+      .toBe(false)
+
+    await openSidebar(page)
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug))).toHaveCount(0, { timeout: 60_000 })
+
+    await page.reload()
+    await expect(page.locator(promptSelector)).toBeVisible()
+    await openSidebar(page)
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug))).toHaveCount(0, { timeout: 60_000 })
+
+    await gotoSession()
+    await openSidebar(page)
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug))).toHaveCount(0, { timeout: 60_000 })
+  })
+})
+
+test("tree mode keeps root workspace destructive actions protected", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ directory, gotoSession, slug }) => {
+    await gotoSession()
+    await openTree(page, directory)
+
+    const row = page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()
+    await expect(row).toBeVisible()
+    await row.hover()
+
+    await expect(page.locator(sidebarTreeWorkspaceDeleteSelector(slug)).first()).toBeDisabled()
   })
 })
 
@@ -156,11 +263,7 @@ test("tree mode flattens git project to project -> session when workspaces are d
     trackSession(ws.id, workspaceDir)
 
     await gotoSession(root.id)
-    await setWorkspaceMode(page, directory, false)
-    await page.reload()
-    await expect(page.locator(promptSelector)).toBeVisible()
-
-    await openSidebar(page)
+    await openTree(page, directory, false)
     await expect(page.locator(sidebarTreeProjectItemSelector).first()).toBeVisible()
     await expect(page.locator(sidebarTreeWorkspaceItemSelector)).toHaveCount(0)
     await expect(page.locator(sessionItemSelector(root.id)).first()).toBeVisible()

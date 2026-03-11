@@ -5,7 +5,6 @@ import path from "node:path"
 import { execSync } from "node:child_process"
 import { createSdk, modKey, resolveDirectory, serverUrl } from "./utils"
 import {
-  dropdownMenuTriggerSelector,
   dropdownMenuContentSelector,
   sessionTimelineHeaderSelector,
   projectMenuTriggerSelector,
@@ -16,6 +15,8 @@ import {
   listItemSelector,
   listItemKeySelector,
   listItemKeyStartsWithSelector,
+  sidebarTreeWorkspaceMenuTriggerSelector,
+  sidebarTreeWorkspaceRowSelector,
   workspaceItemSelector,
   workspaceMenuTriggerSelector,
 } from "./selectors"
@@ -439,6 +440,24 @@ const seed = async <T>(input: {
   }
 }
 
+const taskSession = (part: unknown, description: string) => {
+  if (!part || typeof part !== "object") return
+  if (!("type" in part) || part.type !== "tool") return
+  if (!("tool" in part) || part.tool !== "task") return
+  if (!("state" in part) || !part.state || typeof part.state !== "object") return
+
+  const input =
+    "input" in part.state && part.state.input && typeof part.state.input === "object" ? part.state.input : undefined
+  if (!input || !("description" in input) || input.description !== description) return
+
+  const meta =
+    "metadata" in part.state && part.state.metadata && typeof part.state.metadata === "object"
+      ? part.state.metadata
+      : undefined
+  if (!meta || !("sessionId" in meta) || typeof meta.sessionId !== "string" || !meta.sessionId) return
+  return meta.sessionId
+}
+
 export async function seedSessionQuestion(
   sdk: ReturnType<typeof createSdk>,
   input: {
@@ -538,17 +557,12 @@ export async function seedSessionTask(
     timeout: 90_000,
     probe: async () => {
       const messages = await sdk.session.messages({ sessionID: input.sessionID, limit: 50 }).then((x) => x.data ?? [])
-      const part = messages
+      const id = messages
         .flatMap((message) => message.parts)
-        .find((part) => {
-          if (part.type !== "tool" || part.tool !== "task") return false
-          if (part.state.input?.description !== input.description) return false
-          return typeof part.state.metadata?.sessionId === "string" && part.state.metadata.sessionId.length > 0
-        })
+        .map((part) => taskSession(part, input.description))
+        .find((part): part is string => !!part)
 
-      if (!part) return
-      const id = part.state.metadata?.sessionId
-      if (typeof id !== "string" || !id) return
+      if (!id) return
       const child = await sdk.session
         .get({ sessionID: id })
         .then((x) => x.data)
@@ -702,11 +716,15 @@ export async function setWorkspacesEnabled(page: Page, projectSlug: string, enab
 }
 
 export async function openWorkspaceMenu(page: Page, workspaceSlug: string) {
-  const item = page.locator(workspaceItemSelector(workspaceSlug)).first()
+  const classic = page.locator(workspaceItemSelector(workspaceSlug)).first()
+  const tree = page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug)).first()
+  const item = (await classic.count()) > 0 ? classic : tree
   await expect(item).toBeVisible()
   await item.hover()
 
-  const trigger = page.locator(workspaceMenuTriggerSelector(workspaceSlug)).first()
+  const classicTrigger = page.locator(workspaceMenuTriggerSelector(workspaceSlug)).first()
+  const treeTrigger = page.locator(sidebarTreeWorkspaceMenuTriggerSelector(workspaceSlug)).first()
+  const trigger = (await classicTrigger.count()) > 0 ? classicTrigger : treeTrigger
   await expect(trigger).toBeVisible()
   await trigger.click({ force: true })
 
