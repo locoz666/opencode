@@ -8,6 +8,7 @@ import {
   settingsNotificationsErrorsSelector,
   settingsNotificationsPermissionsSelector,
   settingsReleaseNotesSelector,
+  settingsSessionWidthSelector,
   settingsSoundsAgentSelector,
   settingsSoundsErrorsSelector,
   settingsSoundsPermissionsSelector,
@@ -480,4 +481,70 @@ test("toggling release notes switch updates localStorage", async ({ page, gotoSe
   }, settingsKey)
 
   expect(stored?.general?.releaseNotes).toBe(false)
+})
+
+test("changing session width persists in localStorage", async ({ page, gotoSession }) => {
+  await gotoSession()
+
+  const dialog = await openSettings(page)
+  const select = dialog.locator(settingsSessionWidthSelector)
+  await expect(select).toBeVisible()
+
+  await select.locator('[data-slot="select-select-trigger"]').click()
+
+  const items = page.locator('[data-slot="select-select-item"]')
+  expect(await items.count()).toBeGreaterThanOrEqual(3)
+
+  const currentValue = await select.locator('[data-slot="select-select-trigger-value"]').textContent()
+  await items.nth(2).click()
+
+  await expect
+    .poll(async () => {
+      const stored = await page.evaluate((key) => {
+        const raw = localStorage.getItem(key)
+        return raw ? JSON.parse(raw) : null
+      }, settingsKey)
+      return stored?.appearance?.sessionWidth
+    })
+    .not.toBe("narrow")
+})
+
+test("changing session width updates desktop prompt width", async ({ page, gotoSession }) => {
+  await page.setViewportSize({ width: 1800, height: 1200 })
+  await gotoSession()
+
+  const reviewToggle = page.getByRole("button", { name: "Toggle review" }).first()
+  await expect(reviewToggle).toBeVisible()
+  if ((await reviewToggle.getAttribute("aria-expanded")) === "true") await reviewToggle.click()
+  await expect(reviewToggle).toHaveAttribute("aria-expanded", "false")
+
+  const dialog = await openSettings(page)
+  const select = dialog.locator(settingsSessionWidthSelector)
+  await expect(select).toBeVisible()
+
+  const width = async () => {
+    const box = await page.locator('[data-component="prompt-input"]').boundingBox()
+    expect(box).toBeTruthy()
+    return box!.width
+  }
+
+  const pick = async (label: string) => {
+    await select.locator('[data-slot="select-select-trigger"]').click()
+    await page.locator('[data-slot="select-select-item"]').filter({ hasText: label }).click()
+  }
+
+  await pick("Narrow")
+  const narrow = await width()
+
+  await pick("Wide")
+  await expect.poll(width).toBeGreaterThan(narrow + 200)
+  const wide = await width()
+
+  await pick("Auto")
+  await expect.poll(width).toBeGreaterThan(wide)
+
+  const box = await page.locator('[data-component="prompt-input"]').boundingBox()
+  expect(box).toBeTruthy()
+  expect(box!.x).toBeGreaterThan(0)
+  expect(1800 - (box!.x + box!.width)).toBeGreaterThan(0)
 })
