@@ -15,6 +15,8 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { useSettings } from "@/context/settings"
+import { getSessionWidthClasses } from "@/models/session-width"
 
 export function SessionTimelineHeader(props: {
   centered: boolean
@@ -33,6 +35,15 @@ export function SessionTimelineHeader(props: {
   const dialog = useDialog()
   const language = useLanguage()
   const reduce = useReducedMotion()
+  const settings = useSettings()
+  const width = createMemo(() => {
+    const cfg = getSessionWidthClasses(settings.appearance.sessionWidth())
+    const list = [
+      "bg-[linear-gradient(to_bottom,var(--background-stronger)_38px,transparent)] w-full pb-10 px-4 md:px-5",
+    ]
+    if (props.centered && cfg.centered) list.push(cfg.maxWidthClasses, cfg.marginClasses)
+    return list.join(" ")
+  })
 
   const [title, setTitle] = createStore({
     draft: "",
@@ -398,15 +409,7 @@ export function SessionTimelineHeader(props: {
         }}
         class="pointer-events-none absolute inset-x-0 top-0 z-30"
       >
-        <div
-          classList={{
-            "bg-[linear-gradient(to_bottom,var(--background-stronger)_38px,transparent)]": true,
-            "w-full": true,
-            "pb-10": true,
-            "px-4 md:px-5": true,
-            "md:max-w-[500px] md:mx-auto 2xl:max-w-[700px]": props.centered,
-          }}
-        >
+        <div class={width()}>
           <div class="pointer-events-auto h-12 w-full flex items-center justify-between gap-2">
             <div class="flex items-center gap-1 min-w-0 flex-1">
               <Show when={props.parentID()}>

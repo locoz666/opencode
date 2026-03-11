@@ -5,6 +5,8 @@ import { useSpring } from "@opencode-ai/ui/motion-spring"
 import { PromptInput } from "@/components/prompt-input"
 import { useLanguage } from "@/context/language"
 import { usePrompt } from "@/context/prompt"
+import { useSettings } from "@/context/settings"
+import { getSessionWidthClasses } from "@/models/session-width"
 import { getSessionHandoff, setSessionHandoff } from "@/pages/session/handoff"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
@@ -42,6 +44,7 @@ export function SessionComposerRegion(props: {
   const params = useParams()
   const prompt = usePrompt()
   const language = useLanguage()
+  const settings = useSettings()
 
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
   const handoffPrompt = createMemo(() => getSessionHandoff(sessionKey())?.prompt)
@@ -131,18 +134,20 @@ export function SessionComposerRegion(props: {
     onCleanup(() => observer.disconnect())
   })
 
+  const width = createMemo(() => {
+    const cfg = getSessionWidthClasses(settings.appearance.sessionWidth())
+    const list = ["w-full px-3 pointer-events-auto"]
+    if (props.centered && cfg.centered) list.push(cfg.maxWidthClasses, cfg.marginClasses)
+    return list.join(" ")
+  })
+
   return (
     <div
       ref={props.setPromptDockRef}
       data-component="session-prompt-dock"
       class="shrink-0 w-full pb-3 flex flex-col justify-center items-center bg-background-stronger pointer-events-none"
     >
-      <div
-        classList={{
-          "w-full px-3 pointer-events-auto": true,
-          "md:max-w-[500px] md:mx-auto 2xl:max-w-[700px]": props.centered,
-        }}
-      >
+      <div class={width()}>
         <Show when={props.state.questionRequest()} keyed>
           {(request) => (
             <div>

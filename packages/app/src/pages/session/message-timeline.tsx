@@ -26,6 +26,7 @@ import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
 import { SessionTimelineHeader } from "@/pages/session/session-timeline-header"
+import { getSessionWidthClasses } from "@/models/session-width"
 
 type MessageComment = {
   path: string
@@ -306,6 +307,20 @@ export function MessageTimeline(props: {
   const parentID = createMemo(() => info()?.parentID)
   const showHeader = createMemo(() => !!(headerTitle() || parentID()))
   const stageCfg = { init: 1, batch: 3 }
+  const width = createMemo(() => getSessionWidthClasses(settings.appearance.sessionWidth()))
+  const rail = createMemo(() => {
+    const cfg = width()
+    const list = ["flex flex-col gap-0 items-start justify-start pb-16 transition-[margin] w-full"]
+    if (props.centered && cfg.centered) list.push(cfg.maxWidthClasses, cfg.marginClasses)
+    list.push(props.centered ? "mt-0.5" : "mt-0")
+    return list.join(" ")
+  })
+  const item = createMemo(() => {
+    const cfg = width()
+    const list = ["min-w-0 w-full max-w-full"]
+    if (props.centered && cfg.centered) list.push(cfg.maxWidthClasses)
+    return list.join(" ")
+  })
   const staging = createTimelineStaging({
     sessionKey,
     turnStart: () => props.turnStart,
@@ -414,14 +429,8 @@ export function MessageTimeline(props: {
             <div
               ref={props.setContentRef}
               role="log"
-              class="flex flex-col gap-0 items-start justify-start pb-16 transition-[margin]"
               style={{ "padding-top": "var(--session-title-height)" }}
-              classList={{
-                "w-full": true,
-                "md:max-w-[500px] md:mx-auto 2xl:max-w-[700px]": props.centered,
-                "mt-0.5": props.centered,
-                "mt-0": !props.centered,
-              }}
+              class={rail()}
             >
               <Show when={props.turnStart > 0 || props.historyMore}>
                 <div class="w-full flex justify-center">
@@ -471,10 +480,7 @@ export function MessageTimeline(props: {
                         props.onRegisterMessage(el, messageID)
                         onCleanup(() => props.onUnregisterMessage(messageID))
                       }}
-                      classList={{
-                        "min-w-0 w-full max-w-full": true,
-                        "md:max-w-[500px] 2xl:max-w-[700px]": props.centered,
-                      }}
+                      class={item()}
                     >
                       <Show when={commentCount() > 0}>
                         <div class="w-full px-4 md:px-5 pb-2">
