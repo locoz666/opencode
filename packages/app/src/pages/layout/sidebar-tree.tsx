@@ -1,4 +1,5 @@
 import { type Session } from "@opencode-ai/sdk/v2/client"
+import { createMediaQuery } from "@solid-primitives/media"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -33,6 +34,10 @@ export type SidebarTreeProps = {
   workspacesEnabled: (project: LocalProject) => boolean
   workspaceIds: (project: LocalProject) => string[]
   workspaceLabel: (directory: string, branch?: string, projectId?: string) => string
+  onToggleProjectWorkspaces: (project: LocalProject) => void
+  onCreateWorkspace: (project: LocalProject) => void
+  onResetWorkspace: (root: string, directory: string) => void
+  onDeleteWorkspace: (root: string, directory: string) => void
   sessionProps: Omit<SessionItemProps, "session" | "slug" | "children" | "mobile" | "dense" | "popover">
   setScrollContainerRef?: (el: HTMLDivElement, mobile?: boolean) => void
 }
@@ -62,6 +67,7 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
   const globalSync = useGlobalSync()
   const language = useLanguage()
   const navigate = useNavigate()
+  const touch = createMediaQuery("(hover: none)")
   const child = (directory: string) => childMapByParent(globalSync.child(directory, { bootstrap: false })[0].session)
   const branch = (directory: string) => globalSync.child(directory, { bootstrap: false })[0].vcs?.branch
   const sessions = createMemo(() =>
@@ -127,7 +133,11 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
               open={props.projectExpanded(item.project.worktree)}
               onOpenChange={(open) => props.setProjectExpanded(item.project.worktree, open)}
             >
-              <div class="px-2" data-component="sidebar-project-item">
+              <div
+                class="px-2"
+                data-component="sidebar-project-item"
+                data-project={base64Encode(item.project.worktree)}
+              >
                 <div class="flex w-full items-center gap-1 rounded-md px-2 py-2 hover:bg-surface-raised-base-hover">
                   <Collapsible.Trigger
                     data-component="sidebar-project-toggle"
@@ -138,22 +148,67 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
                       <div class="truncate text-12-regular text-text-weak">{item.project.worktree}</div>
                     </div>
                   </Collapsible.Trigger>
-                  <Tooltip value={language.t("command.session.new")} placement="top">
+                  <div class="relative z-10 flex shrink-0 items-center gap-1">
+                    <Tooltip value={language.t("command.session.new")} placement="top">
+                      <IconButton
+                        icon="plus-small"
+                        variant="ghost"
+                        size="small"
+                        class="size-6 rounded-md"
+                        data-action="project-new-session"
+                        data-project={base64Encode(item.project.worktree)}
+                        aria-label={language.t("command.session.new")}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          navigate(`/${base64Encode(item.project.worktree)}/session`)
+                        }}
+                      />
+                    </Tooltip>
                     <IconButton
                       icon="plus-small"
                       variant="ghost"
                       size="small"
                       class="size-6 rounded-md"
-                      data-action="project-new-session"
+                      data-action="project-new-workspace"
                       data-project={base64Encode(item.project.worktree)}
-                      aria-label={language.t("command.session.new")}
+                      aria-label={language.t("workspace.new")}
+                      disabled={!props.workspacesEnabled(item.project)}
                       onClick={(event) => {
                         event.preventDefault()
                         event.stopPropagation()
-                        navigate(`/${base64Encode(item.project.worktree)}/session`)
+                        props.onCreateWorkspace(item.project)
                       }}
                     />
-                  </Tooltip>
+                    <Tooltip
+                      value={
+                        props.workspacesEnabled(item.project)
+                          ? language.t("sidebar.workspaces.disable")
+                          : language.t("sidebar.workspaces.enable")
+                      }
+                      placement="top"
+                    >
+                      <IconButton
+                        icon="dot-grid"
+                        variant="ghost"
+                        size="small"
+                        class="size-6 rounded-md"
+                        data-action="project-workspaces-toggle"
+                        data-project={base64Encode(item.project.worktree)}
+                        aria-label={
+                          props.workspacesEnabled(item.project)
+                            ? language.t("sidebar.workspaces.disable")
+                            : language.t("sidebar.workspaces.enable")
+                        }
+                        disabled={item.project.vcs !== "git" && !props.workspacesEnabled(item.project)}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          props.onToggleProjectWorkspaces(item.project)
+                        }}
+                      />
+                    </Tooltip>
+                  </div>
                   <Collapsible.Trigger
                     data-component="sidebar-project-toggle"
                     class="flex size-6 shrink-0 items-center justify-center rounded-md text-icon-weak hover:bg-surface-raised-base-hover"
@@ -175,10 +230,14 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
                         open={props.workspaceExpanded(workspace.directory, workspace.local)}
                         onOpenChange={(open) => props.setWorkspaceExpanded(workspace.directory, open)}
                       >
-                        <div data-component="sidebar-workspace-item">
+                        <div
+                          data-component="sidebar-workspace-item"
+                          data-workspace={base64Encode(workspace.directory)}
+                          class="group/workspace relative"
+                        >
                           <Collapsible.Trigger
                             data-component="sidebar-workspace-toggle"
-                            class="flex w-full items-center gap-2 rounded-md py-1.5 pl-9 pr-2 text-left hover:bg-surface-raised-base-hover"
+                            class="flex w-full items-center gap-2 rounded-md py-1.5 pl-9 pr-16 text-left hover:bg-surface-raised-base-hover"
                           >
                             <div class="flex min-w-0 grow items-center gap-2">
                               <span class="truncate text-14-medium text-text-base">
@@ -205,6 +264,46 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
                               />
                             </div>
                           </Collapsible.Trigger>
+                          <div
+                            class="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 transition-opacity pointer-events-auto"
+                            classList={{
+                              "opacity-100": touch(),
+                              "opacity-0 group-hover/workspace:opacity-100 group-focus-within/workspace:opacity-100":
+                                !touch(),
+                            }}
+                          >
+                            <Tooltip value={language.t("command.session.new")} placement="top">
+                              <IconButton
+                                icon="plus-small"
+                                variant="ghost"
+                                size="small"
+                                class="size-6 rounded-md"
+                                data-action="workspace-new-session"
+                                data-workspace={base64Encode(workspace.directory)}
+                                aria-label={language.t("command.session.new")}
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  navigate(`/${base64Encode(workspace.directory)}/session`)
+                                }}
+                              />
+                            </Tooltip>
+                            <IconButton
+                              icon="trash"
+                              variant="ghost"
+                              size="small"
+                              class="size-6 rounded-md"
+                              data-action="workspace-delete"
+                              data-workspace={base64Encode(workspace.directory)}
+                              aria-label={language.t("common.delete")}
+                              disabled={workspace.local}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                props.onDeleteWorkspace(item.project.worktree, workspace.directory)
+                              }}
+                            />
+                          </div>
                         </div>
                         <Collapsible.Content>
                           <div class="flex w-full min-w-0 flex-col gap-1 pl-6">

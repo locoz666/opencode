@@ -1914,6 +1914,12 @@ export default function Layout(props: ParentProps) {
                   }
                   workspaceIds={workspaceIds}
                   workspaceLabel={workspaceLabel}
+                  onToggleProjectWorkspaces={toggleProjectWorkspaces}
+                  onCreateWorkspace={createWorkspace}
+                  onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
+                  onDeleteWorkspace={(root, directory) =>
+                    workspaceSidebarCtx.showDeleteWorkspaceDialog(root, directory)
+                  }
                   sessionProps={projectSidebarCtx.sessionProps}
                   setScrollContainerRef={workspaceSidebarCtx.setScrollContainerRef}
                 />
@@ -2012,6 +2018,12 @@ export default function Layout(props: ParentProps) {
                   }
                   workspaceIds={workspaceIds}
                   workspaceLabel={workspaceLabel}
+                  onToggleProjectWorkspaces={toggleProjectWorkspaces}
+                  onCreateWorkspace={createWorkspace}
+                  onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
+                  onDeleteWorkspace={(root, directory) =>
+                    workspaceSidebarCtx.showDeleteWorkspaceDialog(root, directory)
+                  }
                   sessionProps={projectSidebarCtx.sessionProps}
                   setScrollContainerRef={workspaceSidebarCtx.setScrollContainerRef}
                 />
