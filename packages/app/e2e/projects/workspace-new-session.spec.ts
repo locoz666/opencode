@@ -1,16 +1,45 @@
 import { base64Decode } from "@opencode-ai/util/encode"
 import type { Page } from "@playwright/test"
 import { test, expect } from "../fixtures"
-import { openSidebar, sessionIDFromUrl, setWorkspacesEnabled, slugFromUrl, waitSlug } from "../actions"
-import { promptSelector, workspaceItemSelector, workspaceNewSessionSelector } from "../selectors"
+import { openSidebar, sessionIDFromUrl, slugFromUrl, waitSlug } from "../actions"
+import {
+  promptSelector,
+  sidebarTreeProjectNewWorkspaceSelector,
+  sidebarTreeProjectWorkspacesToggleSelector,
+  sidebarTreeWorkspaceRowSelector,
+  workspaceNewSessionSelector,
+} from "../selectors"
 import { createSdk } from "../utils"
+
+const layoutKey = "opencode.global.dat:layout"
+
+async function setSidebarMode(page: Page, mode: "tree") {
+  await page.evaluate(
+    ({ mode, key }: { mode: "tree"; key: string }) => {
+      const raw = localStorage.getItem(key)
+      const data = raw ? JSON.parse(raw) : {}
+      const sidebar = data.sidebar && typeof data.sidebar === "object" ? data.sidebar : {}
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          ...data,
+          sidebar: {
+            ...sidebar,
+            mode,
+          },
+        }),
+      )
+    },
+    { mode, key: layoutKey },
+  )
+}
 
 async function waitWorkspaceReady(page: Page, slug: string) {
   await openSidebar(page)
   await expect
     .poll(
       async () => {
-        const item = page.locator(workspaceItemSelector(slug)).first()
+        const item = page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()
         try {
           await item.hover({ timeout: 500 })
           return true
@@ -36,7 +65,7 @@ async function createWorkspace(page: Page, root: string, seen: string[]) {
 async function openWorkspaceNewSession(page: Page, slug: string) {
   await waitWorkspaceReady(page, slug)
 
-  const item = page.locator(workspaceItemSelector(slug)).first()
+  const item = page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()
   await item.hover()
 
   const button = page.locator(workspaceNewSessionSelector(slug)).first()
@@ -46,6 +75,22 @@ async function openWorkspaceNewSession(page: Page, slug: string) {
   const next = await waitSlug(page)
   await expect(page).toHaveURL(new RegExp(`/${next}/session(?:[/?#]|$)`))
   return next
+}
+
+async function enableWorkspaces(page: Page, slug: string) {
+  const current = await page
+    .locator(sidebarTreeProjectNewWorkspaceSelector(slug))
+    .first()
+    .isVisible()
+    .then((x) => x)
+    .catch(() => false)
+  if (current) return
+
+  const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(slug)).first()
+  await expect(toggle).toBeVisible()
+  await expect(toggle).toBeEnabled()
+  await toggle.click()
+  await expect(page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first()).toBeVisible()
 }
 
 async function createSessionFromWorkspace(page: Page, slug: string, text: string) {
@@ -81,9 +126,11 @@ async function sessionDirectory(directory: string, sessionID: string) {
 test("new sessions from sidebar workspace actions stay in selected workspace", async ({ page, withProject }) => {
   await page.setViewportSize({ width: 1400, height: 800 })
 
-  await withProject(async ({ directory, slug: root, trackSession, trackDirectory }) => {
+  await withProject(async ({ slug: root, trackSession, trackDirectory }) => {
+    await setSidebarMode(page, "tree")
+    await page.reload()
     await openSidebar(page)
-    await setWorkspacesEnabled(page, root, true)
+    await enableWorkspaces(page, root)
 
     const first = await createWorkspace(page, root, [])
     trackDirectory(first.directory)

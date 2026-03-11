@@ -10,6 +10,9 @@ import {
   projectMenuTriggerSelector,
   projectCloseMenuSelector,
   projectWorkspacesToggleSelector,
+  sidebarTreeProjectNewSessionSelector,
+  sidebarTreeProjectNewWorkspaceSelector,
+  sidebarTreeProjectWorkspacesToggleSelector,
   titlebarRightSelector,
   popoverBodySelector,
   listItemSelector,
@@ -697,6 +700,21 @@ export async function setWorkspacesEnabled(page: Page, projectSlug: string, enab
     .catch(() => false)
 
   if (current === enabled) return
+
+  const tree = page.locator(sidebarTreeProjectWorkspacesToggleSelector(projectSlug)).first()
+  const treeVisible = await tree
+    .isVisible()
+    .then((x) => x)
+    .catch(() => false)
+  if (treeVisible) {
+    await expect(tree).toBeEnabled()
+    await tree.click({ force: true })
+    const next = enabled
+      ? page.locator(sidebarTreeProjectNewWorkspaceSelector(projectSlug)).first()
+      : page.locator(sidebarTreeProjectNewSessionSelector(projectSlug)).first()
+    await expect(next).toBeVisible()
+    return
+  }
 
   const flip = async (timeout?: number) => {
     const menu = await openProjectMenu(page, projectSlug)

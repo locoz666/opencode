@@ -31,7 +31,7 @@ export const projectSwitchSelector = (slug: string) =>
   `${sidebarNavSelector} [data-action="project-switch"][data-project="${slug}"]`
 
 export const projectMenuTriggerSelector = (slug: string) =>
-  `${sidebarNavSelector} [data-action="project-menu"][data-project="${slug}"]`
+  `${sidebarNavSelector} [data-action="project-switch"][data-project="${slug}"]`
 
 export const projectCloseMenuSelector = (slug: string) => `[data-action="project-close-menu"][data-project="${slug}"]`
 
@@ -73,6 +73,12 @@ export const sidebarTreeProjectToggleSelector = `${sidebarNavSelector} [data-com
 
 export const sidebarTreeProjectNewWorkspaceSelector = (slug: string) =>
   `${sidebarNavSelector} [data-action="project-new-workspace"][data-project="${slug}"]`
+
+export const sidebarTreeProjectNewSessionSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-action="project-new-session"][data-project="${slug}"]`
+
+export const sidebarTreeProjectWorkspacesToggleSelector = (slug: string) =>
+  `${sidebarNavSelector} [data-action="project-workspaces-toggle"][data-project="${slug}"]`
 
 export const sidebarTreeWorkspaceItemSelector = `${sidebarNavSelector} [data-component="sidebar-workspace-item"]`
 

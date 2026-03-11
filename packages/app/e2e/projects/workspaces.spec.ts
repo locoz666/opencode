@@ -13,11 +13,16 @@ import {
   confirmDialog,
   openSidebar,
   openWorkspaceMenu,
-  setWorkspacesEnabled,
   slugFromUrl,
   waitSlug,
 } from "../actions"
-import { dropdownMenuContentSelector, workspaceItemSelector } from "../selectors"
+import {
+  sidebarTreeWorkspaceRowSelector,
+  workspaceNewSessionSelector,
+  sidebarTreeProjectNewSessionSelector,
+  sidebarTreeProjectNewWorkspaceSelector,
+  sidebarTreeProjectWorkspacesToggleSelector,
+} from "../selectors"
 import { createSdk, dirSlug, modKey } from "../utils"
 
 const layoutKey = "opencode.global.dat:layout"
@@ -44,15 +49,38 @@ async function setSidebarMode(page: Page, mode: "classic" | "tree") {
 }
 
 async function resetSidebarMode(page: Page) {
-  await setSidebarMode(page, "classic")
+  await setSidebarMode(page, "tree")
   await page.reload()
+}
+
+async function setTreeWorkspaces(page: Page, slug: string, enabled: boolean) {
+  const current = await page
+    .locator(sidebarTreeProjectNewWorkspaceSelector(slug))
+    .first()
+    .isVisible()
+    .then((x) => x)
+    .catch(() => false)
+
+  if (current === enabled) return
+
+  const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(slug)).first()
+  await expect(toggle).toBeVisible()
+  await expect(toggle).toBeEnabled()
+  await toggle.click()
+
+  if (enabled) {
+    await expect(page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first()).toBeVisible()
+    return
+  }
+
+  await expect(page.locator(sidebarTreeProjectNewSessionSelector(slug)).first()).toBeVisible()
 }
 
 async function setupWorkspaceTest(page: Page, project: { slug: string }) {
   const rootSlug = project.slug
   await openSidebar(page)
 
-  await setWorkspacesEnabled(page, rootSlug, true)
+  await setTreeWorkspaces(page, rootSlug, true)
 
   await page.getByRole("button", { name: "New workspace" }).first().click()
   const slug = await waitSlug(page, [rootSlug])
@@ -63,7 +91,7 @@ async function setupWorkspaceTest(page: Page, project: { slug: string }) {
   await expect
     .poll(
       async () => {
-        const item = page.locator(workspaceItemSelector(slug)).first()
+        const item = page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()
         try {
           await item.hover({ timeout: 500 })
           return true
@@ -88,13 +116,13 @@ test("can enable and disable workspaces from project menu", async ({ page, withP
     await expect(page.getByRole("button", { name: "New session" }).first()).toBeVisible()
     await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
 
-    await setWorkspacesEnabled(page, slug, true)
+    await setTreeWorkspaces(page, slug, true)
     await expect(page.getByRole("button", { name: "New workspace" }).first()).toBeVisible()
-    await expect(page.locator(workspaceItemSelector(slug)).first()).toBeVisible()
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()).toBeVisible()
 
-    await setWorkspacesEnabled(page, slug, false)
+    await setTreeWorkspaces(page, slug, false)
     await expect(page.getByRole("button", { name: "New session" }).first()).toBeVisible()
-    await expect(page.locator(workspaceItemSelector(slug))).toHaveCount(0)
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(slug))).toHaveCount(0)
   })
 })
 
@@ -104,7 +132,7 @@ test("can create a workspace", async ({ page, withProject }) => {
   await withProject(async ({ slug }) => {
     await resetSidebarMode(page)
     await openSidebar(page)
-    await setWorkspacesEnabled(page, slug, true)
+    await setTreeWorkspaces(page, slug, true)
 
     await expect(page.getByRole("button", { name: "New workspace" }).first()).toBeVisible()
 
@@ -117,7 +145,7 @@ test("can create a workspace", async ({ page, withProject }) => {
     await expect
       .poll(
         async () => {
-          const item = page.locator(workspaceItemSelector(workspaceSlug)).first()
+          const item = page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug)).first()
           try {
             await item.hover({ timeout: 500 })
             return true
@@ -129,7 +157,7 @@ test("can create a workspace", async ({ page, withProject }) => {
       )
       .toBe(true)
 
-    await expect(page.locator(workspaceItemSelector(workspaceSlug)).first()).toBeVisible()
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(workspaceSlug)).first()).toBeVisible()
 
     await cleanupTestProject(workspaceDir)
   })
@@ -156,23 +184,15 @@ test("non-git projects keep workspace mode disabled", async ({ page, withProject
       await openSidebar(page)
       await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
 
-      const trigger = page.locator('[data-action="project-menu"]').first()
-      const hasMenu = await trigger
+      const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(nonGitSlug)).first()
+      const hasToggle = await toggle
         .isVisible()
         .then((x) => x)
         .catch(() => false)
-      if (!hasMenu) return
-
-      await trigger.click({ force: true })
-
-      const menu = page.locator(dropdownMenuContentSelector).first()
-      await expect(menu).toBeVisible()
-
-      const toggle = menu.locator('[data-action="project-workspaces-toggle"]').first()
-
+      if (!hasToggle) return
       await expect(toggle).toBeVisible()
       await expect(toggle).toBeDisabled()
-      await expect(menu.getByRole("menuitem", { name: "New workspace" })).toHaveCount(0)
+      await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
     })
   } finally {
     await cleanupTestProject(nonGit)
@@ -192,7 +212,7 @@ test("can rename a workspace", async ({ page, withProject }) => {
 
     await expect(menu).toHaveCount(0)
 
-    const item = page.locator(`${workspaceItemSelector(slug)}:visible`).first()
+    const item = page.locator(`${sidebarTreeWorkspaceRowSelector(slug)}:visible`).first()
     await expect(item).toBeVisible()
     await expect
       .poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-component") ?? ""))
@@ -310,8 +330,8 @@ test("can delete a workspace", async ({ page, withProject }) => {
     await project.gotoSession()
 
     await openSidebar(page)
-    await expect(page.locator(workspaceItemSelector(slug))).toHaveCount(0, { timeout: 60_000 })
-    await expect(page.locator(workspaceItemSelector(rootSlug)).first()).toBeVisible()
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(slug))).toHaveCount(0, { timeout: 60_000 })
+    await expect(page.locator(sidebarTreeWorkspaceRowSelector(rootSlug)).first()).toBeVisible()
   })
 })
 
@@ -322,7 +342,7 @@ test("can reorder workspaces by drag and drop", async ({ page, withProject }) =>
     const workspaces = [] as { directory: string; slug: string }[]
 
     const listSlugs = async () => {
-      const nodes = page.locator('[data-component="sidebar-nav-desktop"] [data-component="workspace-item"]')
+      const nodes = page.locator('[data-component="sidebar-nav-desktop"] [data-component="sidebar-workspace-item"]')
       const slugs = await nodes.evaluateAll((els) => {
         return els.map((el) => el.getAttribute("data-workspace") ?? "").filter((x) => x.length > 0)
       })
@@ -333,7 +353,7 @@ test("can reorder workspaces by drag and drop", async ({ page, withProject }) =>
       await expect
         .poll(
           async () => {
-            const item = page.locator(workspaceItemSelector(slug)).first()
+            const item = page.locator(sidebarTreeWorkspaceRowSelector(slug)).first()
             try {
               await item.hover({ timeout: 500 })
               return true
@@ -347,8 +367,8 @@ test("can reorder workspaces by drag and drop", async ({ page, withProject }) =>
     }
 
     const drag = async (from: string, to: string) => {
-      const src = page.locator(workspaceItemSelector(from)).first()
-      const dst = page.locator(workspaceItemSelector(to)).first()
+      const src = page.locator(sidebarTreeWorkspaceRowSelector(from)).first()
+      const dst = page.locator(sidebarTreeWorkspaceRowSelector(to)).first()
 
       const a = await src.boundingBox()
       const b = await dst.boundingBox()
@@ -363,7 +383,7 @@ test("can reorder workspaces by drag and drop", async ({ page, withProject }) =>
     try {
       await openSidebar(page)
 
-      await setWorkspacesEnabled(page, rootSlug, true)
+      await setTreeWorkspaces(page, rootSlug, true)
 
       for (const _ of [0, 1]) {
         const prev = slugFromUrl(page.url())
@@ -406,5 +426,99 @@ test("can reorder workspaces by drag and drop", async ({ page, withProject }) =>
     } finally {
       await Promise.all(workspaces.map((w) => cleanupTestProject(w.directory)))
     }
+  })
+})
+
+test("tree mode: project-level plus creates session when worktrees disabled", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ slug }) => {
+    await setSidebarMode(page, "tree")
+    await openSidebar(page)
+
+    await expect(page.getByRole("button", { name: "New session" }).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
+
+    await page.locator(sidebarTreeProjectNewSessionSelector(slug)).first().click()
+
+    await expect.poll(() => slugFromUrl(page.url()), { timeout: 30_000 }).toBe(slug)
+    expect(page.url()).toContain("/session")
+  })
+})
+
+test("tree mode: project-level plus creates workspace when worktrees enabled", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ slug }) => {
+    await setSidebarMode(page, "tree")
+    await openSidebar(page)
+
+    const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(slug)).first()
+    await expect(toggle).toBeVisible()
+    await expect(toggle).toBeEnabled()
+    await toggle.click()
+
+    await expect(page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first()).toBeVisible()
+    await expect(page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first()).toBeEnabled()
+
+    await page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first().click()
+
+    const workspaceSlug = await waitSlug(page, [slug])
+    expect(workspaceSlug).not.toBe(slug)
+
+    const workspaceDir = base64Decode(workspaceSlug)
+    await cleanupTestProject(workspaceDir)
+  })
+})
+
+test("tree mode: git project with zero extra worktrees can enable worktrees from project row", async ({
+  page,
+  withProject,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ slug }) => {
+    await setSidebarMode(page, "tree")
+    await openSidebar(page)
+
+    await expect(page.getByRole("button", { name: "New session" }).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: "New workspace" })).toHaveCount(0)
+
+    const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(slug)).first()
+    await expect(toggle).toBeVisible()
+    await expect(toggle).toBeEnabled()
+
+    await toggle.click()
+
+    await expect(page.getByRole("button", { name: "New workspace" }).first()).toBeVisible()
+    await expect(toggle).toBeEnabled()
+  })
+})
+
+test("tree mode: workspace-level plus creates session", async ({ page, withProject }) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+
+  await withProject(async ({ slug }) => {
+    await setSidebarMode(page, "tree")
+    await openSidebar(page)
+
+    const toggle = page.locator(sidebarTreeProjectWorkspacesToggleSelector(slug)).first()
+    await expect(toggle).toBeVisible()
+    await toggle.click()
+
+    await page.locator(sidebarTreeProjectNewWorkspaceSelector(slug)).first().click()
+
+    const workspaceSlug = await waitSlug(page, [slug])
+    const workspaceDir = base64Decode(workspaceSlug)
+
+    await openSidebar(page)
+    const create = page.locator(workspaceNewSessionSelector(workspaceSlug)).first()
+    await expect(create).toBeVisible()
+    await create.click()
+
+    await expect.poll(() => slugFromUrl(page.url()), { timeout: 30_000 }).toBe(workspaceSlug)
+    expect(page.url()).toContain("/session")
+
+    await cleanupTestProject(workspaceDir)
   })
 })
