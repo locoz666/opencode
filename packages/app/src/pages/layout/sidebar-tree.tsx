@@ -91,8 +91,8 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
   )
 
   return (
-    <div class="flex min-h-0 flex-col gap-2 px-2 py-3">
-      <div class="flex items-center gap-1 px-2">
+    <div class="flex min-h-0 w-full min-w-0 flex-col gap-2 overflow-x-hidden px-2 py-3">
+      <div class="flex min-w-0 items-center gap-1 px-2">
         <TooltipKeybind placement="bottom" title={props.openProjectLabel()} keybind={props.openProjectKeybind() ?? ""}>
           <IconButton
             icon="folder-add-left"
@@ -124,7 +124,7 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
 
       <div
         ref={(el) => props.setScrollContainerRef?.(el, props.mobile)}
-        class="flex min-h-0 flex-col gap-1 overflow-y-auto no-scrollbar"
+        class="flex min-h-0 w-full min-w-0 flex-col gap-1 overflow-x-hidden overflow-y-auto no-scrollbar"
       >
         <For each={rows()}>
           {(item) => (
@@ -134,16 +134,16 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
               onOpenChange={(open) => props.setProjectExpanded(item.project.worktree, open)}
             >
               <div
-                class="px-2"
+                class="w-full min-w-0 px-2"
                 data-component="sidebar-project-item"
                 data-project={base64Encode(item.project.worktree)}
               >
-                <div class="flex w-full items-center gap-1 rounded-md px-2 py-2 hover:bg-surface-raised-base-hover">
+                <div class="flex w-full min-w-0 items-center gap-1 overflow-hidden rounded-md px-2 py-2 hover:bg-surface-raised-base-hover">
                   <Collapsible.Trigger
                     data-component="sidebar-project-toggle"
-                    class="flex min-w-0 grow items-center text-left"
+                    class="flex min-w-0 grow items-center overflow-hidden text-left"
                   >
-                    <div class="min-w-0 grow">
+                    <div class="min-w-0 grow overflow-hidden">
                       <div class="truncate text-14-medium text-text-strong">{displayName(item.project)}</div>
                       <div class="truncate text-12-regular text-text-weak">{item.project.worktree}</div>
                     </div>
@@ -237,15 +237,15 @@ export const SidebarTree = (props: SidebarTreeProps): JSX.Element => {
                         >
                           <Collapsible.Trigger
                             data-component="sidebar-workspace-toggle"
-                            class="flex w-full items-center gap-2 rounded-md py-1.5 pl-9 pr-16 text-left hover:bg-surface-raised-base-hover"
+                            class="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md py-1.5 pl-9 pr-16 text-left hover:bg-surface-raised-base-hover"
                           >
                             <div class="flex min-w-0 grow items-center gap-2">
-                              <span class="truncate text-14-medium text-text-base">
+                              <span class="shrink-0 truncate text-14-medium text-text-base">
                                 {workspace.local
                                   ? language.t("workspace.type.local")
                                   : language.t("workspace.type.sandbox")}
                               </span>
-                              <span class="truncate text-14-regular text-text-weak">
+                              <span class="min-w-0 flex-1 truncate text-14-regular text-text-weak">
                                 {props.workspaceLabel(
                                   workspace.directory,
                                   branch(workspace.directory),

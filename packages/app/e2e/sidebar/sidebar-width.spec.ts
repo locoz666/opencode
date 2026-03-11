@@ -155,6 +155,7 @@ test("tree workspace sidebar keeps long session rows truncated and keeps resize 
     const workspaceToggles = projectContent.locator(
       sidebarTreeWorkspaceToggleSelector.replace('[data-component="sidebar-nav-desktop"] ', ""),
     )
+    const workspaceItem = projectContent.locator('[data-component="sidebar-workspace-item"]').nth(1)
     const row = page.locator(`${sessionItemSelector(ws.id)} a`).first()
     const handle = page.locator('[data-component="resize-handle"][data-direction="horizontal"]').first()
 
@@ -177,7 +178,32 @@ test("tree workspace sidebar keeps long session rows truncated and keeps resize 
 
     await resize(248)
 
+    await expect.poll(async () => Math.round((await nav.boundingBox())?.width ?? 0)).toBe(248)
     await expect(row).toBeVisible()
+    await expect(workspaceItem).toBeVisible()
+
+    const navBox = await nav.boundingBox()
+    const projectBox = await projectItem.boundingBox()
+    const workspaceBox = await workspaceItem.boundingBox()
+    const rowBox = await row.boundingBox()
+    const labelBox = await row
+      .locator("span")
+      .last()
+      .evaluate((label) => ({
+        scroll: label.scrollWidth,
+        width: label.getBoundingClientRect().width,
+        overflow: getComputedStyle(label).overflow,
+        textOverflow: getComputedStyle(label).textOverflow,
+        whiteSpace: getComputedStyle(label).whiteSpace,
+      }))
+
+    expect(Math.round(projectBox?.width ?? 0)).toBeLessThanOrEqual(Math.round(navBox?.width ?? 0))
+    expect(Math.round(workspaceBox?.width ?? 0)).toBeLessThanOrEqual(Math.round(navBox?.width ?? 0))
+    expect(Math.round(rowBox?.width ?? 0)).toBeLessThanOrEqual(Math.round(navBox?.width ?? 0))
+    expect(labelBox.scroll).toBeGreaterThan(labelBox.width)
+    expect(labelBox.overflow).toBe("hidden")
+    expect(labelBox.textOverflow).toBe("ellipsis")
+    expect(labelBox.whiteSpace).toBe("nowrap")
 
     await expect(handle).toBeVisible()
   })
