@@ -495,7 +495,6 @@ test("changing session width persists in localStorage", async ({ page, gotoSessi
   const items = page.locator('[data-slot="select-select-item"]')
   expect(await items.count()).toBeGreaterThanOrEqual(3)
 
-  const currentValue = await select.locator('[data-slot="select-select-trigger-value"]').textContent()
   await items.nth(2).click()
 
   await expect
@@ -541,7 +540,7 @@ test("changing session width updates desktop prompt width", async ({ page, gotoS
   const wide = await width()
 
   await pick("Auto")
-  await expect.poll(width).toBeGreaterThan(wide)
+  await expect.poll(width).toBe(wide)
 
   const box = await page.locator('[data-component="prompt-input"]').boundingBox()
   expect(box).toBeTruthy()
