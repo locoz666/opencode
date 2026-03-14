@@ -18,15 +18,8 @@ export type WidthClassConfig = {
 }
 
 export function getSessionWidthClasses(mode: SessionWidthMode): WidthClassConfig {
-  if (mode === "auto") {
-    return {
-      centered: false,
-      maxWidthClasses: "",
-      marginClasses: "",
-    }
-  }
-
-  const width = WIDTH_CONFIG[mode]
+  const key = mode === "auto" ? "wide" : mode
+  const width = WIDTH_CONFIG[key]
   return {
     centered: true,
     maxWidthClasses: `md:max-w-[${width.md}px] 2xl:max-w-[${width["2xl"]}px]`,

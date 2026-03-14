@@ -18,11 +18,11 @@ describe("getSessionWidthClasses", () => {
     })
   })
 
-  test("disables centered rail caps for auto mode", () => {
+  test("auto mode reuses wide config for centered rail caps", () => {
     expect(getSessionWidthClasses("auto")).toEqual({
-      centered: false,
-      maxWidthClasses: "",
-      marginClasses: "",
+      centered: true,
+      maxWidthClasses: "md:max-w-[1000px] 2xl:max-w-[1400px]",
+      marginClasses: "md:mx-auto",
     })
   })
 })
