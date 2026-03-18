@@ -10,8 +10,22 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSettings, monoFontFamily } from "@/context/settings"
-import { playSound, SOUND_OPTIONS } from "@/utils/sound"
+import { playSound, resolveSound, type SoundCustom, SOUND_OPTIONS } from "@/utils/sound"
 import { Link } from "./link"
+
+const MAX_CUSTOM_SOUND_SIZE = 2 * 1024 * 1024
+const ACCEPT = ".wav,.mp3,.aac,.ogg,.webm,audio/*"
+const ACCEPTED_AUDIO_TYPES = [
+  "audio/wav",
+  "audio/wave",
+  "audio/x-wav",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/aac",
+  "audio/ogg",
+  "audio/webm",
+]
+const ACCEPTED_AUDIO_EXTENSIONS = [".wav", ".mp3", ".aac", ".ogg", ".webm"]
 
 let demoSoundState = {
   cleanup: undefined as (() => void) | undefined,
@@ -145,9 +159,90 @@ export const SettingsGeneral: Component = () => {
   const sessionWidthOptionsList = [...sessionWidthOptions]
 
   const noneSound = { id: "none", label: "sound.option.none", src: undefined } as const
-  const soundOptions = [noneSound, ...SOUND_OPTIONS]
+  const customSound = { id: "custom", label: "sound.option.custom", src: undefined } as const
+  const soundOptions = [noneSound, ...SOUND_OPTIONS, customSound]
+
+  const getCustomSound = (slot: "agent" | "permissions" | "errors") => {
+    if (slot === "agent") return settings.sounds.agentCustom()
+    if (slot === "permissions") return settings.sounds.permissionsCustom()
+    return settings.sounds.errorsCustom()
+  }
+
+  const setCustomSound = (slot: "agent" | "permissions" | "errors", value: SoundCustom | undefined) => {
+    if (slot === "agent") return settings.sounds.setAgentCustom(value)
+    if (slot === "permissions") return settings.sounds.setPermissionsCustom(value)
+    return settings.sounds.setErrorsCustom(value)
+  }
+
+  const pickCustomSound = (slot: "agent" | "permissions" | "errors") => {
+    document.getElementById(`sound-file-input-${slot}`)?.click()
+  }
+
+  const validCustomSound = (file: File) => {
+    if (ACCEPTED_AUDIO_TYPES.includes(file.type)) return true
+    const name = file.name.toLowerCase()
+    return ACCEPTED_AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext))
+  }
+
+  const handleCustomSoundSelect = (
+    slot: "agent" | "permissions" | "errors",
+    file: File,
+    setEnabled: (value: boolean) => void,
+    set: (id: string) => void,
+  ) => {
+    if (!validCustomSound(file)) {
+      showToast({
+        title: language.t("sound.custom.invalidType"),
+        description: language.t("sound.custom.invalidTypeDescription"),
+      })
+      return
+    }
+
+    if (file.size > MAX_CUSTOM_SOUND_SIZE) {
+      showToast({
+        title: language.t("sound.custom.tooLarge"),
+        description: language.t("sound.custom.tooLargeDescription"),
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const data = e.target?.result
+      if (typeof data !== "string") {
+        showToast({
+          title: language.t("sound.custom.readFailed"),
+          description: language.t("sound.custom.readFailedDescription"),
+        })
+        return
+      }
+      setCustomSound(slot, { name: file.name, data })
+      setEnabled(true)
+      set("custom")
+      playDemoSound(data)
+    }
+    reader.onerror = () => {
+      showToast({
+        title: language.t("sound.custom.readFailed"),
+        description: language.t("sound.custom.readFailedDescription"),
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleClearCustomSound = (
+    slot: "agent" | "permissions" | "errors",
+    setEnabled: (value: boolean) => void,
+    set: (id: string) => void,
+  ) => {
+    setCustomSound(slot, undefined)
+    setEnabled(false)
+    set("none")
+    stopDemoSound()
+  }
 
   const soundSelectProps = (
+    slot: "agent" | "permissions" | "errors",
     enabled: () => boolean,
     current: () => string,
     setEnabled: (value: boolean) => void,
@@ -156,9 +251,20 @@ export const SettingsGeneral: Component = () => {
     options: soundOptions,
     current: enabled() ? (soundOptions.find((o) => o.id === current()) ?? noneSound) : noneSound,
     value: (o: (typeof soundOptions)[number]) => o.id,
-    label: (o: (typeof soundOptions)[number]) => language.t(o.label),
+    label: (o: (typeof soundOptions)[number]) => {
+      if (o.id === "custom") {
+        const custom = getCustomSound(slot)
+        return custom ? custom.name : language.t(o.label)
+      }
+      return language.t(o.label)
+    },
     onHighlight: (option: (typeof soundOptions)[number] | undefined) => {
       if (!option) return
+      if (option.id === "custom") {
+        const custom = getCustomSound(slot)
+        playDemoSound(resolveSound(option.id, custom)?.src)
+        return
+      }
       playDemoSound(option.src)
     },
     onSelect: (option: (typeof soundOptions)[number] | undefined) => {
@@ -166,6 +272,17 @@ export const SettingsGeneral: Component = () => {
       if (option.id === "none") {
         setEnabled(false)
         stopDemoSound()
+        return
+      }
+      if (option.id === "custom") {
+        const custom = getCustomSound(slot)
+        if (!custom) {
+          pickCustomSound(slot)
+          return
+        }
+        setEnabled(true)
+        set("custom")
+        playDemoSound(resolveSound(option.id, custom)?.src)
         return
       }
       setEnabled(true)
@@ -383,55 +500,88 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
+  const SoundRow = (props: {
+    slot: "agent" | "permissions" | "errors"
+    title: string
+    description: string
+    dataAction: string
+    enabled: () => boolean
+    current: () => string
+    setEnabled: (value: boolean) => void
+    set: (id: string) => void
+  }) => {
+    const isCustom = () => props.enabled() && props.current() === "custom"
+
+    return (
+      <SettingsRow title={props.title} description={props.description}>
+        <div class="flex items-center gap-2">
+          <Select
+            data-action={props.dataAction}
+            {...soundSelectProps(props.slot, props.enabled, props.current, props.setEnabled, props.set)}
+          />
+          <input
+            id={`sound-file-input-${props.slot}`}
+            type="file"
+            accept={ACCEPT}
+            class="hidden"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0]
+              if (file) handleCustomSoundSelect(props.slot, file, props.setEnabled, props.set)
+              e.currentTarget.value = ""
+            }}
+          />
+          <Show when={isCustom()}>
+            <Button
+              size="small"
+              variant="ghost"
+              onClick={() => handleClearCustomSound(props.slot, props.setEnabled, props.set)}
+              title={language.t("sound.custom.clear")}
+            >
+              <Icon name="trash" size="small" />
+            </Button>
+          </Show>
+        </div>
+      </SettingsRow>
+    )
+  }
+
   const SoundsSection = () => (
     <div class="flex flex-col gap-1">
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.sounds")}</h3>
 
       <div class="bg-surface-raised-base px-4 rounded-lg">
-        <SettingsRow
+        <SoundRow
+          slot="agent"
           title={language.t("settings.general.sounds.agent.title")}
           description={language.t("settings.general.sounds.agent.description")}
-        >
-          <Select
-            data-action="settings-sounds-agent"
-            {...soundSelectProps(
-              () => settings.sounds.agentEnabled(),
-              () => settings.sounds.agent(),
-              (value) => settings.sounds.setAgentEnabled(value),
-              (id) => settings.sounds.setAgent(id),
-            )}
-          />
-        </SettingsRow>
+          dataAction="settings-sounds-agent"
+          enabled={() => settings.sounds.agentEnabled()}
+          current={() => settings.sounds.agent()}
+          setEnabled={(value) => settings.sounds.setAgentEnabled(value)}
+          set={(id) => settings.sounds.setAgent(id)}
+        />
 
-        <SettingsRow
+        <SoundRow
+          slot="permissions"
           title={language.t("settings.general.sounds.permissions.title")}
           description={language.t("settings.general.sounds.permissions.description")}
-        >
-          <Select
-            data-action="settings-sounds-permissions"
-            {...soundSelectProps(
-              () => settings.sounds.permissionsEnabled(),
-              () => settings.sounds.permissions(),
-              (value) => settings.sounds.setPermissionsEnabled(value),
-              (id) => settings.sounds.setPermissions(id),
-            )}
-          />
-        </SettingsRow>
+          dataAction="settings-sounds-permissions"
+          enabled={() => settings.sounds.permissionsEnabled()}
+          current={() => settings.sounds.permissions()}
+          setEnabled={(value) => settings.sounds.setPermissionsEnabled(value)}
+          set={(id) => settings.sounds.setPermissions(id)}
+        />
 
-        <SettingsRow
+        <SoundRow
+          slot="errors"
           title={language.t("settings.general.sounds.errors.title")}
           description={language.t("settings.general.sounds.errors.description")}
-        >
-          <Select
-            data-action="settings-sounds-errors"
-            {...soundSelectProps(
-              () => settings.sounds.errorsEnabled(),
-              () => settings.sounds.errors(),
-              (value) => settings.sounds.setErrorsEnabled(value),
-              (id) => settings.sounds.setErrors(id),
-            )}
-          />
-        </SettingsRow>
+          dataAction="settings-sounds-errors"
+          enabled={() => settings.sounds.errorsEnabled()}
+          current={() => settings.sounds.errors()}
+          setEnabled={(value) => settings.sounds.setErrorsEnabled(value)}
+          set={(id) => settings.sounds.setErrors(id)}
+        />
       </div>
     </div>
   )
