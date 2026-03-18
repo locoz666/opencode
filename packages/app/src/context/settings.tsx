@@ -2,6 +2,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
+import type { SoundCustom } from "@/utils/sound"
 
 export interface NotificationSettings {
   agent: boolean
@@ -12,10 +13,13 @@ export interface NotificationSettings {
 export interface SoundSettings {
   agentEnabled: boolean
   agent: string
+  agentCustom: SoundCustom | undefined
   permissionsEnabled: boolean
   permissions: string
+  permissionsCustom: SoundCustom | undefined
   errorsEnabled: boolean
   errors: string
+  errorsCustom: SoundCustom | undefined
 }
 
 export type SessionWidthMode = "narrow" | "wide" | "auto"
@@ -72,10 +76,13 @@ const defaultSettings: Settings = {
   sounds: {
     agentEnabled: true,
     agent: "staplebops-01",
+    agentCustom: undefined,
     permissionsEnabled: true,
     permissions: "staplebops-02",
+    permissionsCustom: undefined,
     errorsEnabled: true,
     errors: "nope-03",
+    errorsCustom: undefined,
   },
 }
 
@@ -218,6 +225,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setAgent(value: string) {
           setStore("sounds", "agent", value)
         },
+        agentCustom: withFallback<SoundCustom | undefined>(
+          () => store.sounds?.agentCustom,
+          defaultSettings.sounds.agentCustom,
+        ),
+        setAgentCustom(value: SoundCustom | undefined) {
+          setStore("sounds", "agentCustom", value)
+        },
         permissionsEnabled: withFallback(
           () => store.sounds?.permissionsEnabled,
           defaultSettings.sounds.permissionsEnabled,
@@ -229,6 +243,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setPermissions(value: string) {
           setStore("sounds", "permissions", value)
         },
+        permissionsCustom: withFallback<SoundCustom | undefined>(
+          () => store.sounds?.permissionsCustom,
+          defaultSettings.sounds.permissionsCustom,
+        ),
+        setPermissionsCustom(value: SoundCustom | undefined) {
+          setStore("sounds", "permissionsCustom", value)
+        },
         errorsEnabled: withFallback(() => store.sounds?.errorsEnabled, defaultSettings.sounds.errorsEnabled),
         setErrorsEnabled(value: boolean) {
           setStore("sounds", "errorsEnabled", value)
@@ -236,6 +257,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         errors: withFallback(() => store.sounds?.errors, defaultSettings.sounds.errors),
         setErrors(value: string) {
           setStore("sounds", "errors", value)
+        },
+        errorsCustom: withFallback<SoundCustom | undefined>(
+          () => store.sounds?.errorsCustom,
+          defaultSettings.sounds.errorsCustom,
+        ),
+        setErrorsCustom(value: SoundCustom | undefined) {
+          setStore("sounds", "errorsCustom", value)
         },
       },
     }
