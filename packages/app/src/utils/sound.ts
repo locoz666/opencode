@@ -94,13 +94,37 @@ export const SOUND_OPTIONS = [
 
 export type SoundOption = (typeof SOUND_OPTIONS)[number]
 export type SoundID = SoundOption["id"]
+export type SoundCustom = { name: string; data: string }
+export type SoundValue = SoundID | "custom" | "none"
+export type ResolvedSound =
+  | SoundOption
+  | {
+      id: "custom"
+      src: string
+      name: string
+      data: string
+    }
 
-const soundById = Object.fromEntries(SOUND_OPTIONS.map((s) => [s.id, s.src])) as Record<SoundID, string>
+const soundById = Object.fromEntries(SOUND_OPTIONS.map((s) => [s.id, s])) as Record<SoundID, SoundOption>
 
-export function soundSrc(id: string | undefined) {
+export function resolveSound(id: string | undefined, meta?: SoundCustom) {
   if (!id) return
+  if (id === "none") return
+  if (id === "custom") {
+    if (!meta?.name || !meta.data) return
+    return {
+      id,
+      src: meta.data,
+      name: meta.name,
+      data: meta.data,
+    } satisfies ResolvedSound
+  }
   if (!(id in soundById)) return
   return soundById[id as SoundID]
+}
+
+export function soundSrc(id: string | undefined, meta?: SoundCustom) {
+  return resolveSound(id, meta)?.src
 }
 
 export function playSound(src: string | undefined) {
