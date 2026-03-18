@@ -12,7 +12,7 @@ import { base64Encode } from "@opencode-ai/util/encode"
 import { decode64 } from "@/utils/base64"
 import { EventSessionError } from "@opencode-ai/sdk/v2"
 import { Persist, persisted } from "@/utils/persist"
-import { playSound, soundSrc } from "@/utils/sound"
+import { playSound, resolveSound } from "@/utils/sound"
 
 type NotificationBase = {
   directory?: string
@@ -234,7 +234,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         if (session.parentID) return
 
         if (settings.sounds.agentEnabled()) {
-          playSound(soundSrc(settings.sounds.agent()))
+          playSound(resolveSound(settings.sounds.agent(), settings.sounds.agentCustom())?.src)
         }
 
         append({
@@ -263,7 +263,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         if (session?.parentID) return
 
         if (settings.sounds.errorsEnabled()) {
-          playSound(soundSrc(settings.sounds.errors()))
+          playSound(resolveSound(settings.sounds.errors(), settings.sounds.errorsCustom())?.src)
         }
 
         const error = "error" in event.properties ? event.properties.error : undefined

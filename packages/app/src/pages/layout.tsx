@@ -33,7 +33,7 @@ import { useNotification } from "@/context/notification"
 import { usePermission } from "@/context/permission"
 import { Binary } from "@opencode-ai/util/binary"
 import { retry } from "@opencode-ai/util/retry"
-import { playSound, soundSrc } from "@/utils/sound"
+import { playSound, resolveSound } from "@/utils/sound"
 import { createAim } from "@/utils/aim"
 import { setNavigate } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
@@ -432,7 +432,7 @@ export default function Layout(props: ParentProps) {
 
         if (e.details.type === "permission.asked") {
           if (settings.sounds.permissionsEnabled()) {
-            playSound(soundSrc(settings.sounds.permissions()))
+            playSound(resolveSound(settings.sounds.permissions(), settings.sounds.permissionsCustom())?.src)
           }
           if (settings.notifications.permissions()) {
             void platform.notify(title, description, href)
