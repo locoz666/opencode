@@ -726,6 +726,14 @@ export const dict = {
   "sound.option.yup04": "Yup 04",
   "sound.option.yup05": "Yup 05",
   "sound.option.yup06": "Yup 06",
+  "sound.option.custom": "Custom",
+  "sound.custom.clear": "Remove custom sound",
+  "sound.custom.invalidType": "Invalid file type",
+  "sound.custom.invalidTypeDescription": "Please select a valid audio file (WAV, MP3, AAC, OGG, or WebM).",
+  "sound.custom.tooLarge": "File too large",
+  "sound.custom.tooLargeDescription": "Audio files must be under 2MB.",
+  "sound.custom.readFailed": "Could not read file",
+  "sound.custom.readFailedDescription": "Please try another audio file.",
 
   "settings.general.notifications.agent.title": "Agent",
   "settings.general.notifications.agent.description":
