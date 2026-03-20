@@ -1,7 +1,6 @@
 export function defaultPageState() {
   return {
     lastProjectSession: {} as { [directory: string]: { directory: string; id: string; at: number } },
-    activeProject: undefined as string | undefined,
     activeWorkspace: undefined as string | undefined,
     projectExpanded: {} as Record<string, boolean>,
     workspaceOrder: {} as Record<string, string[]>,

@@ -5,7 +5,6 @@ import { Button } from "@opencode-ai/ui/button"
 import { ContextMenu } from "@opencode-ai/ui/context-menu"
 import { HoverCard } from "@opencode-ai/ui/hover-card"
 import { Icon } from "@opencode-ai/ui/icon"
-import { createSortable } from "@thisbeyond/solid-dnd"
 import { useLayout, type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -33,22 +32,6 @@ export type ProjectSidebarContext = {
   workspaceLabel: (directory: string, branch?: string, projectId?: string) => string
   sessionProps: Omit<SessionItemProps, "session" | "slug" | "children" | "mobile" | "dense" | "popover">
   setHoverSession: (id: string | undefined) => void
-}
-
-export const ProjectDragOverlay = (props: {
-  projects: Accessor<LocalProject[]>
-  activeProject: Accessor<string | undefined>
-}): JSX.Element => {
-  const project = createMemo(() => props.projects().find((p) => p.worktree === props.activeProject()))
-  return (
-    <Show when={project()}>
-      {(p) => (
-        <div class="bg-background-base rounded-xl p-1">
-          <ProjectIcon project={p()} />
-        </div>
-      )}
-    </Show>
-  )
 }
 
 const ProjectTile = (props: {
@@ -268,7 +251,7 @@ const ProjectPreviewPanel = (props: {
   </div>
 )
 
-export const SortableProject = (props: {
+export const SidebarProject = (props: {
   project: LocalProject
   mobile?: boolean
   ctx: ProjectSidebarContext
@@ -276,7 +259,6 @@ export const SortableProject = (props: {
 }): JSX.Element => {
   const globalSync = useGlobalSync()
   const language = useLanguage()
-  const sortable = createSortable(props.project.worktree)
   const selected = createMemo(() =>
     projectSelected(props.ctx.currentDir(), props.project.worktree, props.project.sandboxes),
   )
@@ -360,8 +342,7 @@ export const SortableProject = (props: {
   )
 
   return (
-    // @ts-ignore
-    <div use:sortable classList={{ "opacity-30": sortable.isActiveDraggable }}>
+    <div>
       <Show when={preview() && !selected()} fallback={tile()}>
         <HoverCard
           open={!state.suppressHover && state.open && !state.menu}

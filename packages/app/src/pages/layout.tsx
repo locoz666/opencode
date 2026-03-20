@@ -24,7 +24,6 @@ import { Session, type Message } from "@opencode-ai/sdk/v2/client"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { createStore, produce, reconcile } from "solid-js/store"
-import type { DragEvent as DndEvent } from "@thisbeyond/solid-dnd"
 import { showToast, Toast, toaster } from "@opencode-ai/ui/toast"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { clearWorkspaceTerminals } from "@/context/terminal"
@@ -53,7 +52,6 @@ import { useLanguage, type Locale } from "@/context/language"
 import {
   effectiveWorkspaceOrder,
   errorMessage,
-  getDraggableId,
   latestRootSession,
   sortedRootSessions,
   workspaceKey,
@@ -67,7 +65,7 @@ import {
 import { createInlineEditorController } from "./layout/inline-editor"
 import { type WorkspaceSidebarContext } from "./layout/sidebar-workspace"
 import { workspaceOpenState } from "./layout/sidebar-workspace-helpers"
-import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
+import { SidebarProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarTree } from "./layout/sidebar-tree"
 import { SidebarContent } from "./layout/sidebar-shell"
 import { defaultPageState } from "./layout/persisted-state"
@@ -1669,71 +1667,17 @@ export default function Layout(props: ParentProps) {
     document.documentElement.style.setProperty("--dialog-left-margin", `${sidebarWidth}px`)
   })
 
-  const loadedSessionDirs = new Set<string>()
-
   createEffect(
     on(
       visibleSessionDirs,
       (dirs) => {
-        if (dirs.length === 0) {
-          loadedSessionDirs.clear()
-          return
-        }
-
-        const next = new Set(dirs)
-        for (const directory of next) {
-          if (loadedSessionDirs.has(directory)) continue
+        for (const directory of dirs) {
           globalSync.project.loadSessions(directory)
-        }
-
-        loadedSessionDirs.clear()
-        for (const directory of next) {
-          loadedSessionDirs.add(directory)
         }
       },
       { defer: true },
     ),
   )
-
-  function handleDragStart(event: unknown) {
-    const id = getDraggableId(event)
-    if (!id) return
-    setHoverProject(undefined)
-    setStore("activeProject", id)
-  }
-
-  function handleDragOver(event: DndEvent) {
-    const { draggable, droppable } = event
-    if (draggable && droppable) {
-      const projects = layout.projects.list()
-      const fromIndex = projects.findIndex((p) => p.worktree === draggable.id.toString())
-      const toIndex = projects.findIndex((p) => p.worktree === droppable.id.toString())
-      if (fromIndex !== toIndex && toIndex !== -1) {
-        layout.projects.move(draggable.id.toString(), toIndex)
-      }
-    }
-  }
-
-  function handleDragEnd() {
-    setStore("activeProject", undefined)
-  }
-
-  function reorderWorkspace(root: string, from: string, to: string) {
-    if (from === to) return
-    setStore("workspaceOrder", root, (prev) => {
-      const project = layout.projects.list().find((item) => item.worktree === root)
-      const dirs = project ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], prev) : [root]
-      const list = dirs.filter((item) => item !== root)
-      const fromIndex = list.findIndex((item) => item === from)
-      const toIndex = list.findIndex((item) => item === to)
-      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev
-      const next = [...list]
-      const [item] = next.splice(fromIndex, 1)
-      if (!item) return prev
-      next.splice(toIndex, 0, item)
-      return next
-    })
-  }
 
   function workspaceIds(project: LocalProject | undefined) {
     if (!project) return []
@@ -1892,17 +1836,13 @@ export default function Layout(props: ParentProps) {
               aimMove={aim.move}
               projects={() => layout.projects.list()}
               renderProject={(project) => (
-                <SortableProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} />
+                <div>
+                  <SidebarProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} />
+                </div>
               )}
-              handleDragStart={handleDragStart}
-              handleDragEnd={handleDragEnd}
-              handleDragOver={handleDragOver}
               openProjectLabel={language.t("command.project.open")}
               openProjectKeybind={() => command.keybind("project.open")}
               onOpenProject={chooseProject}
-              renderProjectOverlay={() => (
-                <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
-              )}
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
@@ -1937,7 +1877,6 @@ export default function Layout(props: ParentProps) {
                   renameWorkspace={workspaceSidebarCtx.renameWorkspace}
                   InlineEditor={workspaceSidebarCtx.InlineEditor}
                   onToggleProjectWorkspaces={toggleProjectWorkspaces}
-                  onReorderWorkspace={reorderWorkspace}
                   onCreateWorkspace={createWorkspace}
                   onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
                   onDeleteWorkspace={(root, directory) =>
@@ -2001,17 +1940,13 @@ export default function Layout(props: ParentProps) {
               aimMove={aim.move}
               projects={() => layout.projects.list()}
               renderProject={(project) => (
-                <SortableProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} mobile />
+                <div>
+                  <SidebarProject ctx={projectSidebarCtx} project={project} sortNow={sortNow} mobile />
+                </div>
               )}
-              handleDragStart={handleDragStart}
-              handleDragEnd={handleDragEnd}
-              handleDragOver={handleDragOver}
               openProjectLabel={language.t("command.project.open")}
               openProjectKeybind={() => command.keybind("project.open")}
               onOpenProject={chooseProject}
-              renderProjectOverlay={() => (
-                <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
-              )}
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
@@ -2047,7 +1982,6 @@ export default function Layout(props: ParentProps) {
                   renameWorkspace={workspaceSidebarCtx.renameWorkspace}
                   InlineEditor={workspaceSidebarCtx.InlineEditor}
                   onToggleProjectWorkspaces={toggleProjectWorkspaces}
-                  onReorderWorkspace={reorderWorkspace}
                   onCreateWorkspace={createWorkspace}
                   onResetWorkspace={(root, directory) => workspaceSidebarCtx.showResetWorkspaceDialog(root, directory)}
                   onDeleteWorkspace={(root, directory) =>
