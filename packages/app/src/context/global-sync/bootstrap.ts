@@ -123,6 +123,9 @@ export async function bootstrapDirectory(input: {
 }) {
   if (input.store.status !== "complete") input.setStore("status", "loading")
 
+  // Start session loading immediately — it has no dependency on blocking requests
+  const sessions = input.loadSessions(input.directory)
+
   const blockingRequests = {
     project: () => input.sdk.project.current().then((x) => input.setStore("project", x.data!.id)),
     provider: () =>
@@ -154,7 +157,7 @@ export async function bootstrapDirectory(input: {
     (path ? Promise.resolve(path) : input.sdk.path.get().then((x) => x.data!)).then((x) => input.setStore("path", x)),
     input.sdk.command.list().then((x) => input.setStore("command", x.data ?? [])),
     input.sdk.session.status().then((x) => input.setStore("session_status", x.data!)),
-    input.loadSessions(input.directory),
+    sessions,
     input.sdk.mcp.status().then((x) => input.setStore("mcp", x.data!)),
     input.sdk.lsp.status().then((x) => input.setStore("lsp", x.data!)),
     input.sdk.vcs.get().then((x) => {
