@@ -306,7 +306,7 @@ export function MessageTimeline(props: {
   const placeholderTitle = createMemo(() => defaultTitle() || (!info()?.title && props.renderedUserMessages.length > 0))
   const parentID = createMemo(() => info()?.parentID)
   const showHeader = createMemo(() => !!(headerTitle() || parentID()))
-  const stageCfg = { init: 1, batch: 3 }
+  const stageCfg = { init: 5, batch: 10 }
   const width = createMemo(() => getSessionWidthClasses(settings.appearance.sessionWidth()))
   const rail = createMemo(() => {
     const cfg = width()
