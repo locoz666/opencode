@@ -71,6 +71,7 @@ export const GlobalRoutes = lazy(() =>
         return streamSSE(c, async (stream) => {
           stream.writeSSE({
             data: JSON.stringify({
+              directory: "global",
               payload: {
                 type: "server.connected",
                 properties: {},
@@ -88,6 +89,7 @@ export const GlobalRoutes = lazy(() =>
           const heartbeat = setInterval(() => {
             stream.writeSSE({
               data: JSON.stringify({
+                directory: "global",
                 payload: {
                   type: "server.heartbeat",
                   properties: {},
