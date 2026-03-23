@@ -1,5 +1,7 @@
 import type {
+  Command,
   Config,
+  McpStatus,
   OpencodeClient,
   Path,
   PermissionRequest,
@@ -120,6 +122,9 @@ export async function bootstrapDirectory(input: {
   vcsCache: VcsCache
   loadSessions: (directory: string) => Promise<void> | void
   translate: (key: string, vars?: Record<string, string | number>) => string
+  provider?: ProviderListResponse
+  command?: Command[] | Promise<Command[]>
+  mcp?: { [name: string]: McpStatus } | Promise<{ [name: string]: McpStatus }>
 }) {
   if (input.store.status !== "complete") input.setStore("status", "loading")
 
@@ -129,9 +134,11 @@ export async function bootstrapDirectory(input: {
   const blockingRequests = {
     project: () => input.sdk.project.current().then((x) => input.setStore("project", x.data!.id)),
     provider: () =>
-      input.sdk.provider.list().then((x) => {
-        input.setStore("provider", normalizeProviderList(x.data!))
-      }),
+      input.provider
+        ? Promise.resolve(input.setStore("provider", input.provider))
+        : input.sdk.provider.list().then((x) => {
+            input.setStore("provider", normalizeProviderList(x.data!))
+          }),
     agent: () => input.sdk.app.agents().then((x) => input.setStore("agent", x.data ?? [])),
     config: () => input.sdk.config.get().then((x) => input.setStore("config", x.data!)),
   }
@@ -155,10 +162,14 @@ export async function bootstrapDirectory(input: {
   const path = input.path
   Promise.all([
     (path ? Promise.resolve(path) : input.sdk.path.get().then((x) => x.data!)).then((x) => input.setStore("path", x)),
-    input.sdk.command.list().then((x) => input.setStore("command", x.data ?? [])),
+    input.command
+      ? Promise.resolve(input.command).then((x) => input.setStore("command", x))
+      : input.sdk.command.list().then((x) => input.setStore("command", x.data ?? [])),
     input.sdk.session.status().then((x) => input.setStore("session_status", x.data!)),
     sessions,
-    input.sdk.mcp.status().then((x) => input.setStore("mcp", x.data!)),
+    input.mcp
+      ? Promise.resolve(input.mcp).then((x) => input.setStore("mcp", x))
+      : input.sdk.mcp.status().then((x) => input.setStore("mcp", x.data!)),
     input.sdk.lsp.status().then((x) => input.setStore("lsp", x.data!)),
     input.sdk.vcs.get().then((x) => {
       const next = x.data ?? input.store.vcs

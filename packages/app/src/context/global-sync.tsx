@@ -1,5 +1,7 @@
 import type {
+  Command,
   Config,
+  McpStatus,
   OpencodeClient,
   Path,
   Project,
@@ -60,6 +62,11 @@ function createGlobalSync() {
   const booting = new Map<string, Promise<void>>()
   const sessionLoads = new Map<string, Promise<void>>()
   const sessionMeta = new Map<string, { limit: number }>()
+  // De-duplicate command/mcp fetches across concurrent bootstrapInstance calls; cleared on full bootstrap().
+  const shared: {
+    command?: Promise<Command[]>
+    mcp?: Promise<{ [name: string]: McpStatus }>
+  } = {}
 
   const [projectCache, setProjectCache, projectInit] = persisted(
     Persist.global("globalSync.project", ["globalSync.project.v1"]),
@@ -253,6 +260,8 @@ function createGlobalSync() {
       const cache = children.vcsCache.get(directory)
       if (!cache) return
       const sdk = sdkFor(directory)
+      if (!shared.command) shared.command = sdk.command.list().then((x) => x.data ?? [])
+      if (!shared.mcp) shared.mcp = sdk.mcp.status().then((x) => x.data!)
       await bootstrapDirectory({
         directory,
         path,
@@ -262,6 +271,9 @@ function createGlobalSync() {
         vcsCache: cache,
         loadSessions,
         translate: language.t,
+        provider: globalStore.provider.all.length ? globalStore.provider : undefined,
+        command: shared.command,
+        mcp: shared.mcp,
       })
     })()
 
@@ -323,6 +335,8 @@ function createGlobalSync() {
   })
 
   async function bootstrap() {
+    shared.command = undefined
+    shared.mcp = undefined
     await bootstrapGlobal({
       globalSDK: globalSDK.client,
       connectErrorTitle: language.t("dialog.server.add.error"),
