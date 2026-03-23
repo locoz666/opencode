@@ -81,6 +81,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       last = Date.now()
       batch(() => {
         for (const event of events) {
+          if (!event?.payload) continue
           if (skip && event.payload.type === "message.part.delta") {
             const props = event.payload.properties
             if (skip.has(deltaKey(event.directory, props.messageID, props.partID))) continue
@@ -146,12 +147,14 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
-            const directory = event.directory ?? "global"
-            const payload = event.payload
+            if (!event || typeof event !== "object") continue
+            const payload = "payload" in event ? event.payload : undefined
+            if (!payload || typeof payload !== "object" || !("type" in payload)) continue
+            const directory = typeof event.directory === "string" ? event.directory : "global"
             const k = key(directory, payload)
             if (k) {
               const i = coalesced.get(k)
-              if (i !== undefined) {
+              if (i !== undefined && i < queue.length && queue[i]) {
                 queue[i] = { directory, payload }
                 if (payload.type === "message.part.updated") {
                   const part = payload.properties.part
